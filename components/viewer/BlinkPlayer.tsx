@@ -24,8 +24,14 @@ import {
   ZoomOut,
   Keyboard,
   Sparkles,
+  XCircle,
 } from "lucide-react";
 import type { FrameEntry } from "@/types";
+import {
+  analyzeClickedPoint,
+  createThumbnailCropDataUrl,
+  type MotionAnalysisResult,
+} from "@/lib/motion";
 import { useSound } from "@/components/SoundProvider";
 
 export type ViewerMode = "blink" | "difference" | "trail";
@@ -34,17 +40,23 @@ export interface PixelClickEvent {
   x: number;
   y: number;
   frameIndex: number;
+  analysis?: MotionAnalysisResult;
+  thumbnailDataUrl?: string;
 }
 
 export interface BlinkPlayerProps {
   frames: FrameEntry[];
   pixelScaleArcsec: number;
   bandLabel: string;
+  centerRa?: number;
+  centerDec?: number;
   currentFrameIndex: number;
   onFrameIndexChange: (index: number) => void;
   onImageDimensionsLoaded?: (width: number, height: number) => void;
   onPixelClick?: (event: PixelClickEvent) => void;
-  markedPixel?: { x: number; y: number } | null;
+  investigation?: MotionAnalysisResult | null;
+  onClearSelection?: () => void;
+  onCanvasReady?: (getPngDataUrl: () => string) => void;
 }
 
 const SPEED_OPTIONS = [
@@ -60,11 +72,15 @@ export function BlinkPlayer({
   frames,
   pixelScaleArcsec,
   bandLabel,
+  centerRa = 269.4521,
+  centerDec = 4.6934,
   currentFrameIndex,
   onFrameIndexChange,
   onImageDimensionsLoaded,
   onPixelClick,
-  markedPixel,
+  investigation,
+  onClearSelection,
+  onCanvasReady,
 }: BlinkPlayerProps) {
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
@@ -93,7 +109,7 @@ export function BlinkPlayer({
 
   // Image Adjust (collapsible)
   const [adjustOpen, setAdjustOpen] = useState<boolean>(false);
-  const [stretch, setStretch] = useState<number>(0); // -50 to +100 contrast/brightness stretch
+  const [stretch, setStretch] = useState<number>(0);
   const [smoothPixels, setSmoothPixels] = useState<boolean>(false);
   const [invertColours, setInvertColours] = useState<boolean>(false);
 
@@ -108,7 +124,12 @@ export function BlinkPlayer({
   // Drag/Pinch interaction refs
   const isDraggingRef = useRef<boolean>(false);
   const dragMovedRef = useRef<boolean>(false);
-  const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number }>({
+  const dragStartRef = useRef<{
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+  }>({
     x: 0,
     y: 0,
     panX: 0,
@@ -119,12 +140,24 @@ export function BlinkPlayer({
   );
   const pinchDistanceRef = useRef<number | null>(null);
 
-  // Respect prefers-reduced-motion on initial mount
+  // Respect prefers-reduced-motion on mount
   useEffect(() => {
     setIsPlaying(!prefersReducedMotion);
   }, [prefersReducedMotion]);
 
-  // Preload all frame images with crossOrigin="anonymous" and extract ImageData
+  // Expose canvas PNG exporter to parent for "Download frame"
+  useEffect(() => {
+    if (!onCanvasReady) return;
+    onCanvasReady(() => {
+      try {
+        return mainCanvasRef.current?.toDataURL("image/png") ?? "";
+      } catch {
+        return "";
+      }
+    });
+  }, [onCanvasReady]);
+
+  // Preload all frame images with crossOrigin="anonymous" onto offscreen canvases
   useEffect(() => {
     if (!frames || frames.length === 0) return;
     let cancelled = false;
@@ -143,7 +176,8 @@ export function BlinkPlayer({
             new Promise<void>((resolve) => {
               const img = new window.Image();
               img.crossOrigin = "anonymous";
-              const src = frame.url || `/data/barnards-star/frames/${frame.file}`;
+              const src =
+                frame.url || `/data/barnards-star/frames/${frame.file}`;
 
               img.onload = () => {
                 if (cancelled) {
@@ -200,7 +234,7 @@ export function BlinkPlayer({
     };
   }, [frames, onImageDimensionsLoaded]);
 
-  // Playback loop (hard cut per frame, with smooth timeline progress indicator)
+  // Playback loop (hard cut per frame)
   useEffect(() => {
     if (!isReady || !isPlaying || frames.length <= 1) {
       setPlayProgress(0);
@@ -245,7 +279,7 @@ export function BlinkPlayer({
     onFrameIndexChange,
   ]);
 
-  // Compute processed ImageData for current mode + stretch + invert, then draw with zoom/pan
+  // Compute processed ImageData for current mode + stretch + invert, then draw with zoom/pan + detective overlays
   useEffect(() => {
     if (!isReady || rawFramesDataRef.current.length === 0) return;
     const canvas = mainCanvasRef.current;
@@ -279,8 +313,7 @@ export function BlinkPlayer({
     const out = outImage.data;
     const totalPixels = width * height;
 
-    // Contrast/brightness stretch factor
-    const stretchNorm = stretch / 100; // -0.5 to +1.0
+    const stretchNorm = stretch / 100;
     const contrastGain = Math.pow(2, stretchNorm * 1.65);
     const brightnessOffset = stretchNorm * 28;
 
@@ -307,34 +340,30 @@ export function BlinkPlayer({
         out[i + 3] = 255;
       }
     } else if (mode === "difference") {
-      // (current frame - reference frame) per pixel:
-      // positive in peach/orange (#FF8A65 / #FFB5A7), negative in sky blue (#A2D2FF), unchanged = dark
       const cur = currentRaw.data;
       const ref = firstRaw.data;
       for (let i = 0; i < totalPixels * 4; i += 4) {
-        const curLum = 0.299 * cur[i] + 0.587 * cur[i + 1] + 0.114 * cur[i + 2];
-        const refLum = 0.299 * ref[i] + 0.587 * ref[i + 1] + 0.114 * ref[i + 2];
+        const curLum =
+          0.299 * cur[i] + 0.587 * cur[i + 1] + 0.114 * cur[i + 2];
+        const refLum =
+          0.299 * ref[i] + 0.587 * ref[i + 1] + 0.114 * ref[i + 2];
         const diff = (curLum - refLum) * contrastGain * 1.45;
 
-        // Base dark deep-space background (#0B0B1E)
         let r = 11;
         let g = 11;
         let b = 30;
 
         if (diff > 6) {
-          // Positive -> Peach / Infrared Orange (#FF8A65 -> #FFD166)
           const t = Math.min(1, (diff - 6) / 140);
           r = 11 + t * (255 - 11);
           g = 11 + t * (155 - 11);
           b = 30 + t * (105 - 30);
         } else if (diff < -6) {
-          // Negative -> Sky Blue (#A2D2FF)
           const t = Math.min(1, (-diff - 6) / 140);
           r = 11 + t * (162 - 11);
           g = 11 + t * (210 - 11);
           b = 30 + t * (255 - 30);
         } else {
-          // Subtle ghost of static field stars so orientation stays clear
           const ghost = Math.min(28, curLum * 0.12);
           r += ghost * 0.7;
           g += ghost * 0.7;
@@ -357,7 +386,6 @@ export function BlinkPlayer({
         out[i + 3] = 255;
       }
     } else if (mode === "trail") {
-      // Maximum of all frames stacked per pixel so a mover leaves a visible track
       const allFrames = rawFramesDataRef.current;
       const numF = allFrames.length;
       for (let i = 0; i < totalPixels * 4; i += 4) {
@@ -407,18 +435,89 @@ export function BlinkPlayer({
     ctx.translate(-cx, -cy);
     ctx.drawImage(offCanvas, 0, 0);
 
-    // Draw marked candidate reticle on canvas if present
-    if (markedPixel) {
-      ctx.strokeStyle = "#FFD166";
-      ctx.lineWidth = Math.max(1.2, 2.2 / zoom);
-      ctx.beginPath();
-      ctx.arc(markedPixel.x, markedPixel.y, 12 / Math.sqrt(zoom), 0, Math.PI * 2);
-      ctx.stroke();
+    // Draw Click-to-Investigate overlays on top of the canvas
+    if (investigation && investigation.found && investigation.centroids.length > 0) {
+      const centroids = investigation.centroids;
+      const firstC = centroids[0];
+      const lastC = centroids[centroids.length - 1];
+      const activeC = centroids[safeIdx] ?? firstC;
 
-      ctx.fillStyle = "#FF8A65";
+      // 1. Glowing arrow from first position to last position (if moved)
+      const dist = Math.hypot(lastC.x - firstC.x, lastC.y - firstC.y);
+      if (dist > 0.6) {
+        ctx.save();
+        ctx.shadowColor = "#FF8A65";
+        ctx.shadowBlur = 8 / Math.sqrt(zoom);
+        ctx.strokeStyle = "#FFD166";
+        ctx.lineWidth = Math.max(1.2, 2.2 / zoom);
+
+        ctx.beginPath();
+        ctx.moveTo(firstC.x, firstC.y);
+        ctx.lineTo(lastC.x, lastC.y);
+        ctx.stroke();
+
+        // Arrowhead at lastC pointing along (lastC - firstC)
+        const angle = Math.atan2(lastC.y - firstC.y, lastC.x - firstC.x);
+        const headLen = Math.max(4.5, 8.5 / Math.sqrt(zoom));
+        ctx.fillStyle = "#FFD166";
+        ctx.beginPath();
+        ctx.moveTo(lastC.x, lastC.y);
+        ctx.lineTo(
+          lastC.x - headLen * Math.cos(angle - Math.PI / 6),
+          lastC.y - headLen * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+          lastC.x - headLen * Math.cos(angle + Math.PI / 6),
+          lastC.y - headLen * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 2. Small dots at the object's position in each frame
+      for (let i = 0; i < centroids.length; i++) {
+        const pt = centroids[i];
+        ctx.save();
+        ctx.fillStyle = i === safeIdx ? "#FFD166" : "#A2D2FF";
+        ctx.beginPath();
+        ctx.arc(
+          pt.x,
+          pt.y,
+          (i === safeIdx ? 3.2 : 2.2) / Math.sqrt(zoom),
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 3. Glowing ring on the selected object in the current frame
+      ctx.save();
+      ctx.shadowColor = "#FFD166";
+      ctx.shadowBlur = 10 / Math.sqrt(zoom);
+      ctx.strokeStyle = "#FFB5A7";
+      ctx.lineWidth = Math.max(1.4, 2.4 / zoom);
       ctx.beginPath();
-      ctx.arc(markedPixel.x, markedPixel.y, 2.2 / Math.sqrt(zoom), 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(activeC.x, activeC.y, 13 / Math.sqrt(zoom), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    } else if (investigation && !investigation.found) {
+      // Subtle dashed circle where the user clicked empty sky
+      ctx.save();
+      ctx.strokeStyle = "rgba(255, 181, 167, 0.55)";
+      ctx.setLineDash([3 / zoom, 3 / zoom]);
+      ctx.lineWidth = Math.max(1, 1.5 / zoom);
+      ctx.beginPath();
+      ctx.arc(
+        investigation.clickedX,
+        investigation.clickedY,
+        9 / Math.sqrt(zoom),
+        0,
+        Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
     }
 
     ctx.restore();
@@ -432,7 +531,7 @@ export function BlinkPlayer({
     zoom,
     pan,
     imgSize,
-    markedPixel,
+    investigation,
   ]);
 
   // Convert client mouse/touch coordinates to image pixel coordinates (0..width-1)
@@ -443,7 +542,6 @@ export function BlinkPlayer({
       const rect = canvas.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return null;
 
-      // Canvas space coordinates before zoom/pan
       const canvasX = ((clientX - rect.left) / rect.width) * imgSize.width;
       const canvasY = ((clientY - rect.top) / rect.height) * imgSize.height;
 
@@ -452,14 +550,19 @@ export function BlinkPlayer({
       const imgX = (canvasX - cx - pan.x) / zoom + cx;
       const imgY = (canvasY - cy - pan.y) / zoom + cy;
 
-      const clampedX = Math.max(0, Math.min(imgSize.width - 1, Math.round(imgX)));
-      const clampedY = Math.max(0, Math.min(imgSize.height - 1, Math.round(imgY)));
+      const clampedX = Math.max(
+        0,
+        Math.min(imgSize.width - 1, Math.round(imgX))
+      );
+      const clampedY = Math.max(
+        0,
+        Math.min(imgSize.height - 1, Math.round(imgY))
+      );
       return { x: clampedX, y: clampedY };
     },
     [imgSize.width, imgSize.height, pan.x, pan.y, zoom]
   );
 
-  // Clamp pan within reasonable bounds for a given zoom
   const clampPan = useCallback(
     (px: number, py: number, targetZoom: number) => {
       if (targetZoom <= 1) return { x: 0, y: 0 };
@@ -475,14 +578,20 @@ export function BlinkPlayer({
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
-    const nextZoom = Math.max(1, Math.min(8, Number((zoom * factor).toFixed(2))));
+    const nextZoom = Math.max(
+      1,
+      Math.min(8, Number((zoom * factor).toFixed(2)))
+    );
     setZoom(nextZoom);
     setPan((prev) => clampPan(prev.x, prev.y, nextZoom));
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    activePointersRef.current.set(e.pointerId, {
+      x: e.clientX,
+      y: e.clientY,
+    });
 
     if (activePointersRef.current.size === 2) {
       const pts = Array.from(activePointersRef.current.values());
@@ -515,13 +624,15 @@ export function BlinkPlayer({
       });
     }
 
-    // Pinch-to-zoom with 2 pointers
     if (activePointersRef.current.size === 2 && pinchDistanceRef.current) {
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       const ratio = dist / pinchDistanceRef.current;
       pinchDistanceRef.current = dist;
-      const nextZoom = Math.max(1, Math.min(8, Number((zoom * ratio).toFixed(2))));
+      const nextZoom = Math.max(
+        1,
+        Math.min(8, Number((zoom * ratio).toFixed(2)))
+      );
       setZoom(nextZoom);
       setPan((prev) => clampPan(prev.x, prev.y, nextZoom));
       dragMovedRef.current = true;
@@ -556,12 +667,39 @@ export function BlinkPlayer({
 
     if (isDraggingRef.current && !dragMovedRef.current) {
       const clicked = clientToImagePixel(e.clientX, e.clientY);
-      if (clicked) {
+      if (clicked && rawFramesDataRef.current.length > 0) {
         playSound("click");
+        const analysis = analyzeClickedPoint({
+          framesData: rawFramesDataRef.current,
+          framesMeta: frames,
+          clickX: clicked.x,
+          clickY: clicked.y,
+          clickedFrameIndex: currentFrameIndex,
+          pixelScaleArcsec,
+          centerRa,
+          centerDec,
+        });
+
+        const safeIdx = Math.min(
+          Math.max(0, currentFrameIndex),
+          rawFramesDataRef.current.length - 1
+        );
+        const centroid = analysis.centroids[safeIdx];
+        const thumbX = centroid ? centroid.x : clicked.x;
+        const thumbY = centroid ? centroid.y : clicked.y;
+        const thumbnailDataUrl = createThumbnailCropDataUrl(
+          rawFramesDataRef.current[safeIdx],
+          thumbX,
+          thumbY,
+          128
+        );
+
         onPixelClick?.({
           x: clicked.x,
           y: clicked.y,
           frameIndex: currentFrameIndex,
+          analysis,
+          thumbnailDataUrl,
         });
       }
     }
@@ -630,7 +768,7 @@ export function BlinkPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [playSound, togglePlay, stepPrevious, stepNext]);
 
-  // Compute scale bar bottom-left from pixelScaleArcsec
+  // Scale bar computed from pixelScaleArcsec
   const scaleBarInfo = useMemo(() => {
     const arcsecPerPxOnScreen = (pixelScaleArcsec || 6.2) / zoom;
     const candidateArcsecs = [15, 30, 60, 120, 300, 600];
@@ -686,7 +824,7 @@ export function BlinkPlayer({
                   backgroundColor: active ? `${item.color}33` : undefined,
                   borderColor: active ? item.color : "transparent",
                 }}
-                className={`min-h-[40px] px-4 py-1.5 rounded-full text-xs sm:text-sm font-heading font-semibold border transition-all focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${
+                className={`min-h-[44px] px-4 py-1.5 rounded-full text-xs sm:text-sm font-heading font-semibold border transition-all focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${
                   active
                     ? "text-cosmic-text shadow-sm"
                     : "text-cosmic-muted hover:text-cosmic-text"
@@ -698,8 +836,22 @@ export function BlinkPlayer({
           })}
         </div>
 
-        {/* Grid & Crosshair & Reset Zoom Toggles */}
+        {/* Grid, Crosshair & Clear Selection Toggles (all 44px min) */}
         <div className="flex flex-wrap items-center gap-2">
+          {investigation && (
+            <button
+              type="button"
+              onClick={() => {
+                playSound("click");
+                onClearSelection?.();
+              }}
+              className="min-h-[44px] px-3.5 py-1.5 rounded-full text-xs font-semibold border border-[#FFD166]/60 bg-[#FFD166]/15 text-[#FFD166] hover:bg-[#FFD166]/25 flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-[#FFD166]"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Clear selection</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
@@ -707,7 +859,7 @@ export function BlinkPlayer({
               setShowGrid((g) => !g);
             }}
             aria-pressed={showGrid}
-            className={`min-h-[40px] px-3.5 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-sky ${
               showGrid
                 ? "bg-pastel-sky/20 border-pastel-sky text-cosmic-text"
                 : "bg-white/[0.05] border-white/15 text-cosmic-muted hover:text-cosmic-text"
@@ -724,7 +876,7 @@ export function BlinkPlayer({
               setShowCrosshair((c) => !c);
             }}
             aria-pressed={showCrosshair}
-            className={`min-h-[40px] px-3.5 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-peach ${
               showCrosshair
                 ? "bg-pastel-peach/20 border-pastel-peach text-cosmic-text"
                 : "bg-white/[0.05] border-white/15 text-cosmic-muted hover:text-cosmic-text"
@@ -825,15 +977,15 @@ export function BlinkPlayer({
             <span>
               {pointerPixel
                 ? `x: ${pointerPixel.x}, y: ${pointerPixel.y}`
-                : markedPixel
-                ? `Marked: ${markedPixel.x}, ${markedPixel.y}`
-                : "Hover / Click sky"}
+                : investigation
+                ? `Selected: ${investigation.clickedX}, ${investigation.clickedY}`
+                : "Click any dot to investigate"}
             </span>
             <span className="text-pastel-sky">{zoom.toFixed(1)}×</span>
           </div>
         </div>
 
-        {/* Zoom & Pan Bar directly under the viewport */}
+        {/* Zoom & Pan Bar directly under the viewport (44px min touch targets) */}
         <div className="w-full max-w-[640px] mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-cosmic-muted">
           <div className="flex items-center gap-2">
             <button
@@ -845,7 +997,7 @@ export function BlinkPlayer({
                 setPan((p) => clampPan(p.x, p.y, z));
               }}
               aria-label="Zoom out"
-              className="min-h-[38px] min-w-[38px] p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-cosmic-text flex items-center justify-center"
+              className="min-h-[44px] min-w-[44px] p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-cosmic-text flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
@@ -861,14 +1013,14 @@ export function BlinkPlayer({
                 setPan((p) => clampPan(p.x, p.y, z));
               }}
               aria-label="Zoom in"
-              className="min-h-[38px] min-w-[38px] p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-cosmic-text flex items-center justify-center"
+              className="min-h-[44px] min-w-[44px] p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-cosmic-text flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={handleResetView}
-              className="min-h-[38px] px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-cosmic-muted hover:text-cosmic-text inline-flex items-center gap-1.5"
+              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-cosmic-muted hover:text-cosmic-text inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset view</span>
@@ -880,7 +1032,7 @@ export function BlinkPlayer({
               ? "Orange = current position · Blue = Visit 1 position"
               : mode === "trail"
               ? "Trail stacks maximum brightness across all visits"
-              : "Wheel / pinch to zoom (1×–8×) · Drag to pan"}
+              : "Click any bright dot to measure its motion"}
           </span>
         </div>
       </div>
@@ -888,7 +1040,6 @@ export function BlinkPlayer({
       {/* CONTROLS (Glass Bar under the Canvas, 44px touch targets) */}
       <div className="glass p-5 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Play/Pause, Prev, Next, Loop */}
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -954,7 +1105,6 @@ export function BlinkPlayer({
             </button>
           </div>
 
-          {/* Speed Selector: 0.5x, 1x, 2x, 4x (1x = 700ms) */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-mono uppercase text-cosmic-muted mr-1">
               Speed
@@ -985,9 +1135,7 @@ export function BlinkPlayer({
         {/* Timeline: Clickable Pills per Visit with Animated Progress Line */}
         <div className="space-y-2">
           <div className="relative">
-            {/* Background Connecting Track */}
             <div className="absolute top-1/2 left-4 right-4 -translate-y-1/2 h-1 rounded-full bg-white/10 pointer-events-none" />
-            {/* Animated Active Progress Line */}
             {frames.length > 1 && (
               <div
                 style={{
@@ -1062,7 +1210,7 @@ export function BlinkPlayer({
             setAdjustOpen((o) => !o);
           }}
           aria-expanded={adjustOpen}
-          className="w-full min-h-[48px] px-6 py-4 flex items-center justify-between text-left text-sm font-heading font-semibold text-cosmic-text hover:bg-white/[0.04] transition-colors focus:outline-none"
+          className="w-full min-h-[48px] px-6 py-4 flex items-center justify-between text-left text-sm font-heading font-semibold text-cosmic-text hover:bg-white/[0.04] transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
         >
           <span className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-pastel-peach" />
@@ -1077,7 +1225,6 @@ export function BlinkPlayer({
 
         {adjustOpen && (
           <div className="px-6 pb-6 pt-2 border-t border-white/10 space-y-5">
-            {/* Stretch Slider */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <label
@@ -1102,7 +1249,6 @@ export function BlinkPlayer({
               />
             </div>
 
-            {/* Smooth/Sharp Pixels + Invert Colours Toggles */}
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -1155,4 +1301,3 @@ export function BlinkPlayer({
     </div>
   );
 }
-

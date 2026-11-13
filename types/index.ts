@@ -24,6 +24,7 @@ export interface TargetMeta {
   frames: FrameEntry[];
   pixelScaleArcsec: number;
   source: "placeholder" | "irsa" | "live" | string;
+  flags?: string[];
 }
 
 export interface SpectrumPoint {
@@ -44,6 +45,31 @@ export interface SkySearchResult {
   source: "placeholder" | "irsa" | "live" | string;
 }
 
+export type DetectiveVerdict =
+  | "Mover"
+  | "Changing brightness"
+  | "Still star";
+
+export interface KnownObjectCheckResult {
+  status: "offline" | "matched" | "unmatched";
+  name: string | null;
+}
+
+export interface CandidateRecord {
+  id: string;
+  ra: number;
+  dec: number;
+  target: string;
+  targetId?: string;
+  verdict: DetectiveVerdict;
+  displacementArcsec: number;
+  speed: number;
+  direction: string;
+  note: string;
+  createdAt: string;
+  thumbnail: string;
+}
+
 export interface CandidateSubmission {
   id: string;
   targetId: string;
@@ -53,9 +79,12 @@ export interface CandidateSubmission {
   pixelX: number;
   pixelY: number;
   epochDate: string;
-  classification: "High Proper Motion" | "Brown Dwarf Candidate" | "Variable Source" | "Transient Anomaly";
+  classification:
+    | "High Proper Motion"
+    | "Brown Dwarf Candidate"
+    | "Variable Source"
+    | "Transient Anomaly";
   confidence: number;
   notes: string;
   createdAt: string;
 }
-

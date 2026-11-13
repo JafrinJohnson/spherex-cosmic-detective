@@ -3,6 +3,7 @@ import type {
   TargetMeta,
   SpectrumPoint,
   SkySearchResult,
+  KnownObjectCheckResult,
 } from "@/types";
 
 const FALLBACK_TARGETS: Target[] = [
@@ -174,7 +175,6 @@ export async function getSpectrum(id: string): Promise<SpectrumPoint[]> {
     return local;
   }
 
-  // Fallback 102-point synthetic spectrum if fetch fails
   return Array.from({ length: 102 }, (_, i) => {
     const wavelength = Number((0.75 + (i / 101) * (5.0 - 0.75)).toFixed(4));
     const flux = Number((85 + Math.sin(wavelength * 2.4) * 35).toFixed(2));
@@ -242,10 +242,37 @@ export async function searchSky(
     ra: cleanRa,
     dec: cleanDec,
     fovArcmin: cleanFov,
-    matchedTarget: ranked[0] && ranked[0].separationDeg <= 5 ? ranked[0].target : closest,
+    matchedTarget:
+      ranked[0] && ranked[0].separationDeg <= 5 ? ranked[0].target : closest,
     nearbyTargets: ranked,
     meta,
     source: meta.source || "placeholder",
   };
 }
 
+export async function checkKnown(
+  ra: number,
+  dec: number
+): Promise<KnownObjectCheckResult> {
+  const apiUrl = getApiBase();
+  if (!apiUrl) {
+    return { status: "offline", name: null };
+  }
+
+  const params = new URLSearchParams({
+    ra: String(ra),
+    dec: String(dec),
+  });
+  const remote = await fetchJsonSafe<{
+    matched?: boolean;
+    name?: string | null;
+  }>(`${apiUrl}/api/known?${params.toString()}`);
+
+  if (!remote) {
+    return { status: "offline", name: null };
+  }
+  if (remote.matched && remote.name) {
+    return { status: "matched", name: remote.name };
+  }
+  return { status: "unmatched", name: null };
+}

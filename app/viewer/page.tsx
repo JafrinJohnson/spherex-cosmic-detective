@@ -1,24 +1,41 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Sparkles,
   RefreshCw,
   AlertTriangle,
   Info,
   Lightbulb,
-  Crosshair,
   Layers,
+  Share2,
+  Link2,
+  Code2,
+  Download,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Check,
 } from "lucide-react";
 import { getTargets, getTarget, getFrames, searchSky } from "@/lib/api";
 import { formatRA, formatDec } from "@/lib/coords";
 import type { Target, TargetMeta } from "@/types";
+import type { MotionAnalysisResult } from "@/lib/motion";
 import {
   BlinkPlayer,
   type PixelClickEvent,
 } from "@/components/viewer/BlinkPlayer";
+import { DetectivePanel } from "@/components/viewer/DetectivePanel";
+import { SpectrumChart } from "@/components/viewer/SpectrumChart";
 import { PageTransition } from "@/components/PageTransition";
 import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
@@ -31,6 +48,13 @@ const BAND_LABELS: Record<string, string> = {
   "4": "Band 4 (2.42–3.82 µm)",
   "5": "Band 5 (3.83–4.41 µm)",
   "6": "Band 6 (4.42–5.00 µm)",
+};
+
+const QUALITY_FLAG_MEANINGS: Record<string, string> = {
+  SATURATED: "Bright star core saturated the detector pixels.",
+  COSMIC_RAY: "A cosmic-ray particle hit was subtracted in this frame.",
+  SCATTERED_LIGHT: "Mild stray earthshine or moonlight gradient across field.",
+  LOW_SNR: "Lower signal-to-noise ratio in this visit.",
 };
 
 function angularDistanceDeg(
@@ -106,13 +130,43 @@ function ViewerContent() {
     width: number;
     height: number;
   }>({ width: 512, height: 512 });
-  const [lastClickedPixel, setLastClickedPixel] =
-    useState<PixelClickEvent | null>(null);
+
+  // Detective Click-to-Investigate state
+  const [investigation, setInvestigation] =
+    useState<MotionAnalysisResult | null>(null);
+  const [thumbnailDataUrl, setThumbnailDataUrl] = useState<string>("");
+
+  // Share, Embed, Quality Flags & Toast state
+  const [embedOpen, setEmbedOpen] = useState<boolean>(false);
+  const [qualityOpen, setQualityOpen] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const getCanvasPngRef = useRef<(() => string) | null>(null);
+
+  const triggerToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 2500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const loadSkyData = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     setUnmatchedOfflineSky(false);
+    setInvestigation(null);
+    setThumbnailDataUrl("");
 
     try {
       const catalog = await getTargets();
@@ -149,7 +203,6 @@ function ViewerContent() {
           (t) => angularDistanceDeg(raNum, decNum, t.ra, t.dec) <= 0.1
         );
 
-        // If no backend is configured and position is not within 0.1° of one of the 5 targets
         if (!apiUrl && !matchedWithin01) {
           setActiveTarget(null);
           setMeta(null);
@@ -201,8 +254,72 @@ function ViewerContent() {
   }, []);
 
   const handlePixelClick = useCallback((event: PixelClickEvent) => {
-    setLastClickedPixel(event);
+    if (event.analysis) {
+      setInvestigation(event.analysis);
+      setThumbnailDataUrl(event.thumbnailDataUrl || "");
+    }
   }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setInvestigation(null);
+    setThumbnailDataUrl("");
+  }, []);
+
+  const handleCanvasReady = useCallback((getter: () => string) => {
+    getCanvasPngRef.current = getter;
+  }, []);
+
+  const displayRa = activeTarget
+    ? activeTarget.ra
+    : Number.isFinite(Number(raParam))
+    ? Number(raParam)
+    : 269.4521;
+  const displayDec = activeTarget
+    ? activeTarget.dec
+    : Number.isFinite(Number(decParam))
+    ? Number(decParam)
+    : 4.6934;
+
+  const buildShareUrl = useCallback(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams({
+      ra: String(displayRa),
+      dec: String(displayDec),
+      fov: String(fovArcmin),
+      band: bandParam,
+    });
+    if (activeTarget?.id) {
+      params.set("target", activeTarget.id);
+    }
+    return `${window.location.origin}/viewer?${params.toString()}`;
+  }, [displayRa, displayDec, fovArcmin, bandParam, activeTarget]);
+
+  const handleCopyLink = async () => {
+    playSound("click");
+    const url = buildShareUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Fallback if clipboard permission denied
+    }
+    triggerToast("Link copied");
+  };
+
+  const handleDownloadFrame = () => {
+    playSound("click");
+    const dataUrl = getCanvasPngRef.current?.() ?? "";
+    if (!dataUrl) return;
+    const frameDate =
+      meta?.frames[currentFrameIndex]?.date ?? "2025-06-01";
+    const slug = activeTarget?.id || "sky";
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `spherex-${slug}-${frameDate}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    triggerToast("Frame downloaded as PNG");
+  };
 
   if (loading) {
     return <ViewerShimmerSkeleton />;
@@ -226,14 +343,14 @@ function ViewerContent() {
                 playSound("click");
                 loadSkyData();
               }}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-xs font-semibold uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow"
+              className="min-h-[44px] inline-flex items-center gap-2 px-6 py-3 rounded-full text-xs font-semibold uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Try again</span>
             </button>
             <Link
               href="/explore"
-              className="px-5 py-3 rounded-full text-xs font-medium bg-white/[0.08] hover:bg-white/[0.15] text-cosmic-text border border-white/15"
+              className="min-h-[44px] inline-flex items-center px-5 py-3 rounded-full text-xs font-medium bg-white/[0.08] hover:bg-white/[0.15] text-cosmic-text border border-white/15"
             >
               ← Explore
             </Link>
@@ -245,8 +362,6 @@ function ViewerContent() {
 
   // Friendly card when NEXT_PUBLIC_API_URL is empty and custom RA/Dec is not within 0.1° of the 5 targets
   if (unmatchedOfflineSky) {
-    const displayRa = Number(raParam);
-    const displayDec = Number(decParam);
     return (
       <div className="max-w-[1200px] mx-auto space-y-8 pb-16">
         <div className="glass p-6 sm:p-8 space-y-3">
@@ -294,7 +409,7 @@ function ViewerContent() {
                     `/viewer?target=${t.id}&ra=${t.ra}&dec=${t.dec}&fov=${fovArcmin}&band=${bandParam}`
                   );
                 }}
-                className="glass px-5 py-3 rounded-full text-xs sm:text-sm font-medium text-cosmic-text hover:border-pastel-peach flex items-center gap-2.5 transition-all"
+                className="min-h-[44px] glass px-5 py-3 rounded-full text-xs sm:text-sm font-medium text-cosmic-text hover:border-pastel-peach flex items-center gap-2.5 transition-all"
               >
                 <span
                   className="w-2.5 h-2.5 rounded-full"
@@ -312,24 +427,16 @@ function ViewerContent() {
     );
   }
 
-  const displayRa = activeTarget
-    ? activeTarget.ra
-    : Number.isFinite(Number(raParam))
-    ? Number(raParam)
-    : 269.4521;
-  const displayDec = activeTarget
-    ? activeTarget.dec
-    : Number.isFinite(Number(decParam))
-    ? Number(decParam)
-    : 4.6934;
-
   const frames = meta?.frames ?? [];
   const activeFrame = frames[currentFrameIndex] ?? frames[0];
   const pixelScale = meta?.pixelScaleArcsec ?? 6.2;
   const isPlaceholderSource = (meta?.source ?? "placeholder") === "placeholder";
+  const qualityFlags = meta?.flags ?? [];
+  const shareUrl = buildShareUrl();
+  const embedSnippet = `<iframe src="${shareUrl}" width="800" height="600"></iframe>`;
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-8 pb-16">
+    <div className="max-w-[1200px] mx-auto space-y-8 pb-16 relative">
       {/* PAGE HEADER */}
       <section className="glass p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="space-y-2.5">
@@ -337,7 +444,7 @@ function ViewerContent() {
             <Link
               href="/explore"
               onClick={() => playSound("click")}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.07] hover:bg-white/[0.15] border border-white/15 text-pastel-sky transition-colors"
+              className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.07] hover:bg-white/[0.15] border border-white/15 text-pastel-sky transition-colors"
             >
               <span>← Explore</span>
             </Link>
@@ -394,7 +501,7 @@ function ViewerContent() {
                     `/viewer?target=${t.id}&ra=${t.ra}&dec=${t.dec}&fov=${fovArcmin}&band=${bandParam}`
                   );
                 }}
-                className={`min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                className={`min-h-[44px] px-4 py-2 rounded-full text-xs font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${
                   selected
                     ? "bg-infrared-gradient text-[#0B0B1E] font-semibold border-transparent shadow-infrared-glow"
                     : "bg-white/[0.06] hover:bg-white/[0.12] border-white/15 text-cosmic-muted hover:text-cosmic-text"
@@ -407,28 +514,48 @@ function ViewerContent() {
         </div>
       </section>
 
-      {/* MAIN TWO-COLUMN LAYOUT: Left = Viewer (flex 2), Right = Side Column (flex 1) */}
+      {/* MAIN TWO-COLUMN LAYOUT: Left = Viewer + Spectrum (flex 2), Right = Detective Panel + Frame Info + Share + Quality (flex 1) */}
       <section className="flex flex-col lg:flex-row gap-8 items-start">
-        {/* Left Column (flex 2): BlinkPlayer */}
-        <div className="w-full lg:flex-[2] min-w-0">
+        {/* Left Column (flex 2): BlinkPlayer + Cosmic Fingerprint Spectrum */}
+        <div className="w-full lg:flex-[2] min-w-0 space-y-8">
           <BlinkPlayer
             frames={frames}
             pixelScaleArcsec={pixelScale}
             bandLabel={bandLabel}
+            centerRa={displayRa}
+            centerDec={displayDec}
             currentFrameIndex={currentFrameIndex}
             onFrameIndexChange={setCurrentFrameIndex}
             onImageDimensionsLoaded={handleImageDimensionsLoaded}
             onPixelClick={handlePixelClick}
-            markedPixel={
-              lastClickedPixel
-                ? { x: lastClickedPixel.x, y: lastClickedPixel.y }
-                : null
-            }
+            investigation={investigation}
+            onClearSelection={handleClearSelection}
+            onCanvasReady={handleCanvasReady}
+          />
+
+          {/* 3. COSMIC FINGERPRINT — SPECTRUM */}
+          <SpectrumChart
+            targetId={activeTarget?.id || "barnards-star"}
+            source={meta?.source ?? "placeholder"}
           />
         </div>
 
-        {/* Right Column (flex 1): Frame Info Card (F5 will add Detective Panel here) */}
+        {/* Right Column (flex 1): Detective Panel, Frame Info, Share & Export, Quality Flags */}
         <aside className="w-full lg:flex-[1] space-y-6">
+          {/* 2. DETECTIVE PANEL */}
+          <DetectivePanel
+            investigation={investigation}
+            thumbnailDataUrl={thumbnailDataUrl}
+            targetName={
+              activeTarget
+                ? activeTarget.name
+                : `Sky (${displayRa.toFixed(2)}°, ${displayDec.toFixed(2)}°)`
+            }
+            targetId={activeTarget?.id}
+            onClearSelection={handleClearSelection}
+          />
+
+          {/* FRAME INFO CARD */}
           <div className="glass p-6 sm:p-7 space-y-6">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -488,21 +615,6 @@ function ViewerContent() {
               </div>
             </dl>
 
-            {/* Clicked Pixel Telemetry Readout */}
-            {lastClickedPixel && (
-              <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-[#FFD166]/40 flex items-center justify-between text-xs">
-                <span className="inline-flex items-center gap-1.5 text-pastel-peach font-medium">
-                  <Crosshair className="w-3.5 h-3.5" />
-                  <span>Marked Position</span>
-                </span>
-                <span className="font-mono text-cosmic-text">
-                  x: {lastClickedPixel.x} px, y: {lastClickedPixel.y} px (Visit{" "}
-                  {lastClickedPixel.frameIndex + 1})
-                </span>
-              </div>
-            )}
-
-            {/* Short Tip Box */}
             <div className="p-4 rounded-2xl bg-pastel-lavender/10 border border-pastel-lavender/30 flex items-start gap-3">
               <Lightbulb className="w-5 h-5 text-pastel-lavender shrink-0 mt-0.5" />
               <p className="text-xs sm:text-sm text-cosmic-text leading-relaxed">
@@ -511,8 +623,149 @@ function ViewerContent() {
               </p>
             </div>
           </div>
+
+          {/* 4. SHARE & EXPORT */}
+          <div className="glass p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-pastel-sky" />
+              <h2 className="font-heading text-lg font-bold text-cosmic-text">
+                Share &amp; Export
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="min-h-[44px] px-3.5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.14] border border-white/15 text-xs font-medium text-cosmic-text flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-sky"
+              >
+                <Link2 className="w-3.5 h-3.5 text-pastel-sky shrink-0" />
+                <span>Copy link</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playSound("click");
+                  setEmbedOpen((o) => !o);
+                }}
+                aria-expanded={embedOpen}
+                className={`min-h-[44px] px-3.5 py-2.5 rounded-2xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${
+                  embedOpen
+                    ? "bg-pastel-lavender/20 border-pastel-lavender text-cosmic-text"
+                    : "bg-white/[0.06] hover:bg-white/[0.14] border-white/15 text-cosmic-text"
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5 text-pastel-lavender shrink-0" />
+                <span>Embed</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadFrame}
+                className="min-h-[44px] px-3.5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.14] border border-white/15 text-xs font-medium text-cosmic-text flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-peach"
+              >
+                <Download className="w-3.5 h-3.5 text-pastel-peach shrink-0" />
+                <span>Download frame</span>
+              </button>
+            </div>
+
+            {embedOpen && (
+              <div className="p-3.5 rounded-2xl bg-[#0B0B1E]/90 border border-white/15 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-cosmic-muted">
+                  <span>Copyable iframe snippet</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      playSound("click");
+                      try {
+                        await navigator.clipboard.writeText(embedSnippet);
+                      } catch {
+                        // Ignore
+                      }
+                      triggerToast("Embed code copied");
+                    }}
+                    className="text-pastel-sky hover:underline font-medium"
+                  >
+                    Copy snippet
+                  </button>
+                </div>
+                <pre className="text-[11px] font-mono text-cosmic-text overflow-x-auto whitespace-pre-wrap break-all select-all">
+                  {embedSnippet}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          {/* 5. QUALITY FLAGS (Small Collapsible Card) */}
+          <div className="glass overflow-hidden">
+            <button
+              type="button"
+              onClick={() => {
+                playSound("click");
+                setQualityOpen((q) => !q);
+              }}
+              aria-expanded={qualityOpen}
+              className="w-full min-h-[48px] px-6 py-4 flex items-center justify-between text-left text-sm font-heading font-semibold text-cosmic-text hover:bg-white/[0.04] transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-mint"
+            >
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-pastel-mint" />
+                <span>Quality flags</span>
+              </span>
+              {qualityOpen ? (
+                <ChevronUp className="w-4 h-4 text-cosmic-muted" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-cosmic-muted" />
+              )}
+            </button>
+
+            {qualityOpen && (
+              <div className="px-6 pb-5 pt-2 border-t border-white/10 text-xs text-cosmic-muted space-y-2">
+                {qualityFlags.length > 0 ? (
+                  <ul className="space-y-2">
+                    {qualityFlags.map((flag) => (
+                      <li
+                        key={flag}
+                        className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex flex-col gap-0.5"
+                      >
+                        <span className="font-mono font-semibold text-pastel-peach">
+                          {flag}
+                        </span>
+                        <span className="text-cosmic-text">
+                          {QUALITY_FLAG_MEANINGS[flag] ??
+                            "Instrument calibration flag noted for this frame."}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-pastel-mint font-medium">
+                    No quality warnings for these frames.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </aside>
       </section>
+
+      {/* Lightweight Toast Component (bottom-centre, glass, auto-hide 2.5 s) */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ duration: 0.2 }}
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-7 left-1/2 -translate-x-1/2 z-50 glass px-5 py-3 rounded-full bg-[#0B0B1E]/95 border border-pastel-mint/50 shadow-glass-glow flex items-center gap-2 text-xs sm:text-sm font-medium text-cosmic-text"
+          >
+            <Check className="w-4 h-4 text-pastel-mint shrink-0" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -232,18 +232,21 @@ function generateTargetFrames(target) {
   fs.mkdirSync(framesDir, { recursive: true });
 
   // Moving object trajectory across 4 frames
-  const startX = 212 + (seed % 40);
-  const startY = 278 - ((seed >> 4) % 40);
-  const dxStep = target.tags.includes("fast") ? 14.5 : 6.5;
-  const dyStep = target.tags.includes("fast") ? -11.0 : -4.5;
+  // Fast movers shift ~2.6 px per epoch (~9.6 px total, inside 8px step radius and > 1px threshold)
+  // Variable stars stay stationary (0 px shift) while brightness modulates > 20%
+  const startX = 236 + (seed % 36);
+  const startY = 268 - ((seed >> 4) % 36);
+  const isFast = target.tags.includes("fast");
+  const isVariable = target.tags.includes("variable");
+  const dxStep = isFast ? 2.5 : 0.0;
+  const dyStep = isFast ? -1.9 : 0.0;
 
   for (let f = 0; f < 4; f++) {
     const frameBuf = Buffer.from(baseBuf);
     const objX = startX + f * dxStep;
     const objY = startY + f * dyStep;
 
-    const isVariable = target.tags.includes("variable");
-    const fluxPulse = isVariable ? [0.85, 1.35, 0.7, 1.45][f] : 1.25;
+    const fluxPulse = isVariable ? [0.68, 1.32, 0.74, 1.48][f] : 1.28;
     const radius = isVariable ? 3.8 * Math.sqrt(fluxPulse) : 4.2;
 
     // Outer infrared halo

@@ -1,0 +1,89 @@
+[
+  {
+    "id": "barnards-star",
+    "name": "Barnard's Star",
+    "nickname": "The Runaway Star",
+    "type": "Red dwarf",
+    "ra": 269.4521,
+    "dec": 4.6934,
+    "distanceLy": 5.96,
+    "tags": [
+      "fast"
+    ],
+    "colors": [
+      "#FFB5A7",
+      "#FF8A65"
+    ],
+    "story": "The fastest-moving star in our sky."
+  },
+  {
+    "id": "wise-0855",
+    "name": "WISE 0855−0714",
+    "nickname": "The Coldest Neighbour",
+    "type": "Brown dwarf",
+    "ra": 133.7951,
+    "dec": -7.2451,
+    "distanceLy": 7.4,
+    "tags": [
+      "fast",
+      "brown-dwarf"
+    ],
+    "colors": [
+      "#C3B1E1",
+      "#A2D2FF"
+    ],
+    "story": "The coldest known brown dwarf, invisible to our eyes."
+  },
+  {
+    "id": "eps-indi-b",
+    "name": "Epsilon Indi B",
+    "nickname": "The Twin Brown Dwarfs",
+    "type": "Brown dwarf pair",
+    "ra": 331.0438,
+    "dec": -56.7828,
+    "distanceLy": 11.9,
+    "tags": [
+      "fast",
+      "brown-dwarf"
+    ],
+    "colors": [
+      "#B5EAD7",
+      "#A2D2FF"
+    ],
+    "story": "Two failed stars orbiting each other near a Sun-like star."
+  },
+  {
+    "id": "rw-aurigae",
+    "name": "RW Aurigae",
+    "nickname": "The Flickering Young Star",
+    "type": "Young variable star",
+    "ra": 76.9564,
+    "dec": 30.4014,
+    "distanceLy": null,
+    "tags": [
+      "variable"
+    ],
+    "colors": [
+      "#FFC8DD",
+      "#C3B1E1"
+    ],
+    "story": "A young star wrapped in dust whose brightness rises and dips."
+  },
+  {
+    "id": "r-draconis",
+    "name": "R Draconis",
+    "nickname": "The Breathing Giant",
+    "type": "Pulsating red giant",
+    "ra": 248.1674,
+    "dec": 66.7549,
+    "distanceLy": null,
+    "tags": [
+      "variable"
+    ],
+    "colors": [
+      "#FFD166",
+      "#FF8A65"
+    ],
+    "story": "A dying giant star that swells and shrinks over months."
+  }
+]

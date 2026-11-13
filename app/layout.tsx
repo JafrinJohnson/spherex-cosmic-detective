@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import { SoundProvider } from "@/components/SoundProvider";
@@ -19,10 +19,35 @@ const inter = Inter({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#0B0B1E",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: "SPHEREx Cosmic Detective — NASA Infrared Time-Domain Sky Explorer",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  ),
+  title: {
+    default: "Cosmic Detective — NASA SPHEREx Infrared Sky Explorer",
+    template: "%s · Cosmic Detective",
+  },
   description:
     "Explore multi-epoch NASA SPHEREx infrared sky images (0.75–5.0 μm) over time, blink frames to spot high-proper-motion brown dwarfs and variable stars, and inspect 102-channel spectra.",
+  openGraph: {
+    title: "Cosmic Detective — NASA SPHEREx Infrared Sky Explorer",
+    description:
+      "Compare real NASA SPHEREx infrared sky images over time and spot hidden worlds that move.",
+    type: "website",
+    siteName: "Cosmic Detective",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cosmic Detective — NASA SPHEREx Infrared Sky Explorer",
+    description:
+      "Compare real NASA SPHEREx infrared sky images over time and spot hidden worlds that move.",
+  },
 };
 
 export default function RootLayout({
@@ -35,13 +60,25 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${inter.variable} dark`}
     >
-      <body className="min-h-screen flex flex-col relative selection:bg-pastel-lavender/30 selection:text-cosmic-text">
+      <body className="min-h-screen flex flex-col relative overflow-x-hidden selection:bg-pastel-lavender/30 selection:text-cosmic-text">
+        {/* Skip to Content Link for Keyboard Accessibility */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-5 focus:py-3 focus:rounded-full focus:bg-infrared-gradient focus:text-[#0B0B1E] focus:font-semibold focus:text-xs focus:uppercase focus:tracking-wider focus:shadow-infrared-glow focus:outline-none"
+        >
+          Skip to content
+        </a>
+
         {/* Lightweight CSS Twinkling Star Layer */}
         <div className="starfield-layer" aria-hidden="true" />
 
         <SoundProvider>
           <Navbar />
-          <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8">
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8 focus:outline-none"
+          >
             {children}
           </main>
           <Footer />
@@ -50,4 +87,3 @@ export default function RootLayout({
     </html>
   );
 }
-

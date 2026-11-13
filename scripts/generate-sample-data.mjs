@@ -359,8 +359,6 @@ function main() {
       fs.writeFileSync(soundPath, createSilentMp3(sound === "ambient.mp3" ? 40 : 8));
     }
   }
-
-  console.log("Generated SPHEREx sample data and 512x512 star-field frames successfully.");
 }
 
 main();

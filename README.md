@@ -1,23 +1,48 @@
 # SPHEREx Cosmic Detective
 
-A public web tool built with **Next.js 15 (App Router)**, **TypeScript**, and **Tailwind CSS** to explore NASA SPHEREx infrared sky images (`0.75–5.0 μm`) over time, blink multi-epoch frames to spot high-proper-motion brown dwarfs and variable stars, and inspect 102-channel infrared spectra.
+**Cosmic Detective** is a public citizen-science web application built with **Next.js 15 (App Router)**, **TypeScript**, and **Tailwind CSS** to explore real NASA SPHEREx infrared sky images (`0.75–5.0 μm`) over time, blink multi-epoch sky frames to spot moving brown dwarfs and variable stars, inspect 102-channel infrared spectra, and log candidate leads.
+
+Built for the **NASA Space Apps Challenge 2026 · Challenge: Planet X and SPHEREx**.
 
 ---
 
 ## Features
 
-- **Multi-Epoch Frame Blinker (`/viewer`)**: Flip through 4 chronological 512×512 infrared sky frames (`frame-01.png` through `frame-04.png`) with adjustable blink cadence, interactive astrometric reticle flagging, and URL parameter support (`?ra=&dec=&target=`).
-- **102-Channel Infrared Spectrophotometry**: Interactive 0.75–5.0 μm Spectral Energy Distribution (SED) visualizer powered by `recharts`, highlighting methane (`CH4`), water (`H2O`), and circumstellar dust features.
-- **Interactive 3D Celestial Sphere (`/`)**: Client-side Three.js (`@react-three/fiber` + `@react-three/drei`) J2000 sky globe dynamically loaded with `ssr: false`.
-- **Cone Search & Target Catalog (`/explore`)**: Filter priority targets (`fast`, `brown-dwarf`, `variable`) or query any Right Ascension / Declination (`searchSky(ra, dec, fovArcmin)`).
-- **Cadet Calibration Academy (`/training`)**: Interactive training modules with celebratory `canvas-confetti` feedback.
-- **Citizen Science Candidate Log (`/candidates`)**: Local vetting console for flagged moving and variable detections.
-- **Resilient Data Layer (`lib/api.ts`)**: Reads `process.env.NEXT_PUBLIC_API_URL`. When empty or unreachable, automatically falls back to `/public/data` sample archives and displays a `"Sample data"` badge whenever `meta.source === "placeholder"`.
-- **Telemetry Audio (`SoundProvider`)**: Ambient loop (activated only after the first user click) and UI sound effects (`click`, `whoosh`, `success`) via `howler`, persisted in `localStorage`.
+- **Home & Interactive 3D Planetary System (`/`)**:
+  - Full-viewport hero with a client-side Three.js (`@react-three/fiber` + `@react-three/drei`) procedural banded exoplanet, Fresnel atmosphere glow, 1,500-particle ring system, instanced asteroid belt, orbiting moon, and meteor streaks.
+  - Step-by-step detective workflow and featured benchmark targets with rotating CSS 3D spheres.
+- **3D Celestial Sphere & Coordinate Explorer (`/explore`)**:
+  - Interactive J2000 celestial sphere wireframe (RA meridians every `2h`, Dec parallels every `30°`) with pulsing markers for the 5 benchmark targets and smooth camera slewing.
+  - Coordinate parser (`lib/coords.ts`) supporting both decimal degrees (`133.7951`, `-7.2451`) and sexagesimal (`08h55m10.83s`, `-07d14m42.5s`), Field of View slider (`2–15′`), and SPHEREx Band 1–6 filter chips.
+- **Detective Viewer & Multi-Epoch Blinker (`/viewer`)**:
+  - HTML5 `<canvas>` blink comparator with **Blink**, **Difference** (`|frame − frame0|` amplified), and **Trail** (rainbow multi-epoch tint) modes, zoom (`1×–8×`), pan, brightness/contrast stretch, invert, and pixel smoothing.
+  - **Click-to-Investigate (`lib/motion.ts`)**: Sub-pixel brightness-weighted centroid tracker across all 4 telescope visits, computing total displacement (`px` and `″`), proper motion speed (`″/day`), direction vector, brightness variation (`%`), and automatic classification (`Mover`, `Changing brightness`, or `Still star`).
+  - **Gaia Cross-Check & Candidate Logging**: One-click catalog lookup (`checkKnown`) and local candidate saving with a `128×128` pixelated crop thumbnail.
+  - **102-Channel Infrared Spectrum**: Interactive `recharts` area plot (`0.75–5.0 μm`) with SPHEREx Bands `B1–B6`, molecular absorption bands (`H₂O`, `CO`, `CH₄`, `CO₂`), and CSV export.
+- **Spot the Mover Training Mode (`/training`)**:
+  - 4-level progressive game with procedural seeded star fields and a **Real Sky** toggle using SPHEREx target frames, live score counters, post-round observation quizzes, and 6 unlockable SVG achievement badges.
+- **Candidates Board (`/candidates`)**:
+  - Filterable and sortable board of saved detective leads with `128px` pixelated thumbnails, direction mini-arrows, relative timestamps, viewer deep links, confirmation modals, and `candidates.json` export.
+- **Long-Scroll Mission Story (`/about`)**:
+  - Explains the SPHEREx telescope, Clyde Tombaugh's 1930 discovery of Pluto via blink comparator, the 4-step IRSA cutout pipeline, benchmark targets, and open science credits.
+- **Resilient Offline-First Data Layer (`lib/api.ts`)**:
+  - Connects to `NEXT_PUBLIC_API_URL` when configured and automatically falls back to deterministic `512×512` multi-epoch frames and 102-point spectra in `/public/data`.
 
 ---
 
-## Setup & Development
+## Screenshots (Placeholders)
+
+| Screen | Preview Placeholder |
+| :--- | :--- |
+| **Home — 3D Exoplanet & Featured Movers** | `docs/screenshots/home-preview.png` *(placeholder)* |
+| **Explore — 3D Celestial Sphere & Coordinate Search** | `docs/screenshots/explore-preview.png` *(placeholder)* |
+| **Detective Viewer — Blink Comparator & 102-Point Spectrum** | `docs/screenshots/viewer-preview.png` *(placeholder)* |
+| **Training Mode — Spot the Mover Game & Badges** | `docs/screenshots/training-preview.png` *(placeholder)* |
+| **Candidates Board — Vetted Citizen Science Leads** | `docs/screenshots/candidates-preview.png` *(placeholder)* |
+
+---
+
+## How to Run Locally
 
 1. **Install dependencies**:
    ```bash
@@ -29,7 +54,6 @@ A public web tool built with **Next.js 15 (App Router)**, **TypeScript**, and **
    ```bash
    cp .env.example .env.local
    ```
-   Leave `NEXT_PUBLIC_API_URL=` empty to use the built-in local sample data in `/public/data`, or set it to your backend base URL.
 
 3. **Regenerate sample data & 512×512 star-field PNGs (optional)**:
    ```bash
@@ -50,10 +74,17 @@ A public web tool built with **Next.js 15 (App Router)**, **TypeScript**, and **
 
 ---
 
-## Data Credits & Attribution
+## Environment Variables
 
-**Data: NASA / JPL-Caltech / IPAC — SPHEREx via IRSA**
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | Optional backend API base URL for live IRSA cutouts and catalog cross-matching. Leave empty to use built-in `/public/data` sample archives. | `""` (empty) |
+| `NEXT_PUBLIC_SITE_URL` | Optional canonical site URL used for Open Graph metadata generation. | `"http://localhost:3000"` |
 
-- **Mission**: NASA SPHEREx (Spectro-Photometer for the History of the Universe, Epoch of Reionization and Ices Explorer), managed by the Jet Propulsion Laboratory (JPL) / California Institute of Technology.
-- **Archive**: NASA/IPAC Infrared Science Archive (IRSA) at Caltech (`https://irsa.ipac.caltech.edu/`).
+---
 
+## Data & Credits
+
+- **SPHEREx Data**: NASA / JPL-Caltech / IPAC, via the **NASA/IPAC Infrared Science Archive (IRSA)** (`https://irsa.ipac.caltech.edu/`).
+- **Astrometric & Infrared Reference Catalogs**: **Gaia (ESA)** and **WISE / NEOWISE (NASA)**.
+- **Scientific Disclaimer**: We do not claim discoveries; candidates marked in this tool are leads for experts to check.

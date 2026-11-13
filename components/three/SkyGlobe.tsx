@@ -377,9 +377,11 @@ export default function SkyGlobe({
   focusRequest,
   onSelectTarget,
 }: SkyGlobeProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [isInView, setIsInView] = useState(true);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -389,8 +391,21 @@ export default function SkyGlobe({
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.05 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="glass p-4 sm:p-6 flex flex-col gap-4">
+    <div ref={containerRef} className="glass p-4 sm:p-6 flex flex-col gap-4">
       {/* Top Telemetry Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -415,6 +430,7 @@ export default function SkyGlobe({
       <div className="relative w-full h-[360px] sm:h-[440px] lg:h-[500px] rounded-2xl overflow-hidden bg-[#0B0B1E]/65 border border-white/10 cursor-grab active:cursor-grabbing">
         <Canvas
           dpr={[1, 1.75]}
+          frameloop={isInView ? "always" : "never"}
           camera={{ position: [0, 0.55, 3.85], fov: 44 }}
         >
           <ambientLight intensity={0.8} />

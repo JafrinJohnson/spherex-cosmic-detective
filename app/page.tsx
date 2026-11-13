@@ -3,15 +3,16 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { motion, useReducedMotion } from "framer-motion";
 import {
-  Compass,
-  Play,
+  Search,
   Layers,
-  Activity,
+  Crosshair,
+  ArrowRight,
   Sparkles,
-  ArrowUpRight,
-  Radar,
-  ShieldCheck,
+  GraduationCap,
+  Telescope,
+  Orbit,
 } from "lucide-react";
 import { getTargets, getFrames } from "@/lib/api";
 import type { Target, TargetMeta } from "@/types";
@@ -19,25 +20,72 @@ import { PageTransition } from "@/components/PageTransition";
 import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
 
-const CelestialGlobe3D = dynamic(
-  () => import("@/components/CelestialGlobe3D"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-[360px] sm:h-[420px] rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col items-center justify-center gap-3">
-        <Radar className="w-7 h-7 text-pastel-lavender animate-spin" />
-        <span className="text-xs font-mono uppercase tracking-widest text-cosmic-muted">
-          Initializing 3D Celestial Sphere...
-        </span>
+const HeroScene = dynamic(() => import("@/components/three/HeroScene"), {
+  ssr: false,
+  loading: () => (
+    <div className="relative w-full h-[380px] sm:h-[460px] lg:h-[540px] flex flex-col items-center justify-center select-none">
+      <div className="w-full h-full rounded-3xl bg-white/[0.03] border border-white/10 flex items-center justify-center relative overflow-hidden">
+        {/* CSS Gradient Sphere Placeholder (no layout jump) */}
+        <div
+          className="w-44 h-44 sm:w-56 sm:h-56 rounded-full relative shadow-[0_0_80px_rgba(195,177,225,0.35)]"
+          style={{
+            background:
+              "radial-gradient(circle at 32% 28%, #FFB5A7 0%, #C3B1E1 48%, #4B3A8C 88%, #0B0B1E 100%)",
+          }}
+        >
+          <div className="absolute -inset-6 rounded-full border border-[#FFB5A7]/30 rotate-[-18deg] scale-x-125" />
+        </div>
       </div>
-    ),
+      <div className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs font-medium text-cosmic-muted">
+        <Orbit className="w-3.5 h-3.5 text-pastel-lavender" />
+        <span>Drag to rotate 360°</span>
+      </div>
+    </div>
+  ),
+});
+
+function formatTargetDistance(distanceLy: number | null): string {
+  if (distanceLy === null || distanceLy === undefined) {
+    return "Distance from Gaia";
   }
-);
+  const roundedInt = Math.round(distanceLy);
+  if (Math.abs(distanceLy - roundedInt) < 0.06) {
+    return `${roundedInt} light years away`;
+  }
+  return `${distanceLy} light years away`;
+}
+
+const HOW_IT_WORKS_STEPS = [
+  {
+    number: "01",
+    title: "Search the sky",
+    description: "Enter coordinates or pick a famous object.",
+    icon: Search,
+    accent: "#A2D2FF",
+  },
+  {
+    number: "02",
+    title: "Blink the images",
+    description:
+      "Watch SPHEREx photos from different dates play like a video.",
+    icon: Layers,
+    accent: "#C3B1E1",
+  },
+  {
+    number: "03",
+    title: "Spot the mover",
+    description:
+      "Click anything that moved and mark it as a candidate.",
+    icon: Crosshair,
+    accent: "#FFB5A7",
+  },
+];
 
 export default function HomePage() {
   const [targets, setTargets] = useState<Target[]>([]);
-  const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
   const [meta, setMeta] = useState<TargetMeta | null>(null);
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+  const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
 
   useEffect(() => {
@@ -45,10 +93,8 @@ export default function HomePage() {
     getTargets().then((list) => {
       if (!active) return;
       setTargets(list);
-      const first = list[0] ?? null;
-      setSelectedTarget(first);
-      if (first) {
-        getFrames(first.id).then((m) => {
+      if (list[0]) {
+        getFrames(list[0].id).then((m) => {
           if (active) setMeta(m);
         });
       }
@@ -58,307 +104,299 @@ export default function HomePage() {
     };
   }, []);
 
-  const handleSelectTarget = (target: Target) => {
-    playSound("click");
-    setSelectedTarget(target);
-    getFrames(target.id).then(setMeta);
-  };
-
   return (
-    <PageTransition className="space-y-16 pb-8">
-      {/* Hero Section */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-4">
-        <div className="lg:col-span-7 space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wider uppercase bg-white/[0.07] border border-white/15 text-pastel-lavender">
-              <Sparkles className="w-3.5 h-3.5 text-pastel-peach" />
-              NASA SPHEREx All-Sky Time-Domain Explorer
-            </span>
-            <SampleDataBadge source={meta?.source ?? "placeholder"} />
-          </div>
-
-          <h1 className="font-heading text-4xl sm:text-6xl font-bold leading-[1.08] tracking-tight text-gradient-headline">
-            Spot Hidden Worlds Moving Through the Infrared Sky.
-          </h1>
-
-          <p className="text-base sm:text-lg text-cosmic-muted leading-relaxed max-w-2xl">
-            Flip through multi-epoch infrared frames captured across 102
-            spectral channels from 0.75 to 5.0 microns. Uncover fast-moving
-            nearby brown dwarfs, runaway red dwarfs, and dust-shrouded variable
-            stars invisible to optical telescopes.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-4 pt-2">
-            <Link
-              href={
-                selectedTarget
-                  ? `/viewer?target=${selectedTarget.id}&ra=${selectedTarget.ra}&dec=${selectedTarget.dec}`
-                  : "/viewer?target=barnards-star"
-              }
-              onClick={() => playSound("whoosh")}
-              className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-full font-heading font-semibold text-sm tracking-wide bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-opacity"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>Launch Multi-Epoch Blinker</span>
-            </Link>
-
-            <Link
-              href="/explore"
-              onClick={() => playSound("click")}
-              className="glass px-6 py-3.5 rounded-full font-heading font-medium text-sm text-cosmic-text flex items-center gap-2 hover:border-pastel-sky/50"
-            >
-              <Compass className="w-4 h-4 text-pastel-sky" />
-              <span>Explore Target Catalog</span>
-            </Link>
-          </div>
-
-          {/* Telemetry Metrics Strip */}
-          <div className="grid grid-cols-3 gap-4 pt-4">
-            <div className="glass p-4 rounded-2xl">
-              <div className="text-xs uppercase tracking-wider text-cosmic-muted">
-                Spectral Range
+    <PageTransition className="max-w-[1200px] mx-auto space-y-28 sm:space-y-36 pb-16">
+      {/* SECTION 1 — HERO (Full Viewport Height) */}
+      <section className="min-h-[calc(100vh-6rem)] flex items-center py-6 lg:py-10">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+          {/* Left Column: Headline, Copy, CTAs, Stat Chips (sits below 3D scene on mobile) */}
+          <div className="order-2 lg:order-1 lg:col-span-7 space-y-7">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="glass inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium text-cosmic-text">
+                <Telescope className="w-4 h-4 text-pastel-peach shrink-0" />
+                <span>Real images from NASA&apos;s SPHEREx telescope</span>
               </div>
-              <div className="font-heading text-xl sm:text-2xl font-bold text-cosmic-text mt-1">
-                0.75 – 5.0 μm
-              </div>
-              <div className="text-[11px] text-pastel-mint mt-0.5">
-                102 Spectrophotometric Bands
-              </div>
+              <SampleDataBadge source={meta?.source ?? "placeholder"} />
             </div>
-            <div className="glass p-4 rounded-2xl">
-              <div className="text-xs uppercase tracking-wider text-cosmic-muted">
-                Angular Scale
-              </div>
-              <div className="font-heading text-xl sm:text-2xl font-bold text-cosmic-text mt-1">
-                6.2&Prime; / px
-              </div>
-              <div className="text-[11px] text-pastel-sky mt-0.5">
-                Wide-Field All-Sky Cadence
-              </div>
-            </div>
-            <div className="glass p-4 rounded-2xl">
-              <div className="text-xs uppercase tracking-wider text-cosmic-muted">
-                Survey Epochs
-              </div>
-              <div className="font-heading text-xl sm:text-2xl font-bold text-cosmic-text mt-1">
-                4 All-Sky Passes
-              </div>
-              <div className="text-[11px] text-pastel-peach mt-0.5">
-                6-Month Proper Motion Baseline
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Interactive 3D Sky Sphere Card */}
-        <div className="lg:col-span-5 glass p-5 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-base font-semibold text-cosmic-text">
-                Interactive 3D Celestial Sphere
-              </h2>
-              <p className="text-xs text-cosmic-muted">
-                Select a calibrated target node to inspect its coordinates
-              </p>
-            </div>
-            <SampleDataBadge source={meta?.source ?? "placeholder"} />
-          </div>
+            <h1 className="font-heading font-bold text-[44px] sm:text-[58px] lg:text-[72px] leading-[1.04] tracking-tight text-cosmic-text">
+              <span className="block">Become a</span>
+              <span className="block text-gradient-infrared">
+                Cosmic Detective
+              </span>
+            </h1>
 
-          <CelestialGlobe3D
-            targets={targets}
-            selectedId={selectedTarget?.id}
-            onSelectTarget={handleSelectTarget}
-          />
+            <p className="text-base sm:text-lg lg:text-xl text-cosmic-muted leading-relaxed max-w-xl">
+              SPHEREx photographs the whole sky every six months. Compare its
+              images over time and spot what moves — the same way Pluto was
+              found.
+            </p>
 
-          {selectedTarget && (
-            <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: selectedTarget.colors[0] }}
-                  />
-                  <span className="font-heading font-semibold text-sm text-cosmic-text">
-                    {selectedTarget.name}
-                  </span>
-                  <span className="text-xs text-cosmic-muted">
-                    — {selectedTarget.nickname}
-                  </span>
-                </div>
-                <p className="text-xs text-cosmic-muted">
-                  {selectedTarget.story}
-                </p>
-                <div className="text-[11px] font-mono text-pastel-sky">
-                  RA {selectedTarget.ra.toFixed(4)}° · Dec{" "}
-                  {selectedTarget.dec >= 0 ? "+" : ""}
-                  {selectedTarget.dec.toFixed(4)}° ·{" "}
-                  {selectedTarget.distanceLy
-                    ? `${selectedTarget.distanceLy} ly`
-                    : "Galactic Variable"}
-                </div>
-              </div>
+            {/* Primary & Secondary Action Pills */}
+            <div className="flex flex-wrap items-center gap-4 pt-1">
+              <Link
+                href="/explore"
+                onClick={() => playSound("whoosh")}
+                className="inline-flex items-center gap-2.5 px-7 py-4 rounded-full font-heading font-semibold text-sm sm:text-base tracking-wide bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-all"
+              >
+                <span>Start Investigating</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
 
               <Link
-                href={`/viewer?target=${selectedTarget.id}&ra=${selectedTarget.ra}&dec=${selectedTarget.dec}`}
-                onClick={() => playSound("whoosh")}
-                className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-cosmic-text border border-white/20 transition-colors"
+                href="/training"
+                onClick={() => playSound("click")}
+                className="glass inline-flex items-center gap-2.5 px-7 py-4 rounded-full font-heading font-medium text-sm sm:text-base text-cosmic-text hover:border-pastel-lavender/60 transition-all"
               >
-                <span>Inspect</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
+                <GraduationCap className="w-4 h-4 text-pastel-lavender" />
+                <span>Try Training Mode</span>
               </Link>
             </div>
-          )}
+
+            {/* Three Glass Stat Chips */}
+            <div className="flex flex-wrap items-center gap-3 pt-3">
+              {[
+                "102 infrared colours",
+                "Whole sky every 6 months",
+                "1 billion+ objects",
+              ].map((stat) => (
+                <div
+                  key={stat}
+                  className="glass px-4 py-2.5 rounded-full text-xs sm:text-sm font-medium text-cosmic-text flex items-center gap-2"
+                >
+                  <span className="w-2 h-2 rounded-full bg-infrared-gradient" />
+                  <span>{stat}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Column: Interactive 3D Planetary Scene (sits above text on mobile) */}
+          <div className="order-1 lg:order-2 lg:col-span-5 w-full">
+            <HeroScene />
+          </div>
         </div>
       </section>
 
-      {/* Priority Targets Strip */}
-      <section className="space-y-6">
+      {/* SECTION 2 — HOW IT WORKS */}
+      <section className="space-y-10">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <span className="text-xs font-mono uppercase tracking-[0.2em] text-pastel-lavender">
+            Three-Step Discovery Protocol
+          </span>
+          <h2 className="font-heading text-3xl sm:text-5xl font-bold text-cosmic-text">
+            How a detective works
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+          {HOW_IT_WORKS_STEPS.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <motion.div
+                key={step.number}
+                initial={
+                  prefersReducedMotion
+                    ? { opacity: 1, y: 0 }
+                    : { opacity: 0, y: 28 }
+                }
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.25 }}
+                transition={{
+                  duration: 0.5,
+                  delay: prefersReducedMotion ? 0 : index * 0.12,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                whileHover={prefersReducedMotion ? undefined : { y: -8 }}
+                className="glass p-7 sm:p-8 flex flex-col justify-between gap-6 relative overflow-hidden"
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center border"
+                    style={{
+                      backgroundColor: `${step.accent}1F`,
+                      borderColor: `${step.accent}55`,
+                      color: step.accent,
+                    }}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="font-heading text-3xl font-bold text-cosmic-muted/40">
+                    {index + 1}
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  <h3 className="font-heading text-xl sm:text-2xl font-bold text-cosmic-text">
+                    {step.title}
+                  </h3>
+                  <p className="text-sm sm:text-base text-cosmic-muted leading-relaxed">
+                    {step.description}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* SECTION 3 — FEATURED OBJECTS */}
+      <section className="space-y-10">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <span className="text-xs font-mono uppercase tracking-widest text-pastel-lavender">
-              Calibrated Reference Objects
-            </span>
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-cosmic-text mt-1">
-              Priority Infrared Targets
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono uppercase tracking-[0.2em] text-pastel-peach">
+                Calibrated SPHEREx Catalog
+              </span>
+              <SampleDataBadge source={meta?.source ?? "placeholder"} />
+            </div>
+            <h2 className="font-heading text-3xl sm:text-5xl font-bold text-cosmic-text">
+              Start with a famous mover
             </h2>
           </div>
+
           <Link
             href="/explore"
             onClick={() => playSound("click")}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-pastel-sky hover:underline"
+            className="inline-flex items-center gap-2 text-sm font-medium text-pastel-sky hover:underline"
           >
-            <span>Open Full Coordinate Search</span>
-            <ArrowUpRight className="w-4 h-4" />
+            <span>Browse all sky targets</span>
+            <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {targets.map((target) => (
-            <div
-              key={target.id}
-              className="glass p-6 flex flex-col justify-between gap-5 group"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-white/[0.07] border border-white/15 text-cosmic-text">
-                    {target.type}
-                  </span>
-                  <SampleDataBadge source="placeholder" />
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
+          {targets.map((target) => {
+            const c1 = target.colors?.[0] ?? "#FFB5A7";
+            const c2 = target.colors?.[1] ?? "#FF8A65";
+            const isHovered = hoveredCardId === target.id;
 
-                <div>
-                  <h3 className="font-heading text-xl font-bold text-cosmic-text group-hover:text-pastel-peach transition-colors">
-                    {target.name}
-                  </h3>
-                  <p className="text-xs font-medium text-pastel-lavender">
-                    {target.nickname}
-                  </p>
-                </div>
+            return (
+              <div
+                key={target.id}
+                onMouseEnter={() => setHoveredCardId(target.id)}
+                onMouseLeave={() => setHoveredCardId(null)}
+                style={{
+                  boxShadow: isHovered
+                    ? `0 18px 48px -10px ${c1}44, 0 0 30px -6px ${c2}38`
+                    : undefined,
+                  borderColor: isHovered ? `${c1}77` : undefined,
+                }}
+                className="group glass p-7 flex flex-col justify-between gap-6 transition-all duration-300 hover:-translate-y-2"
+              >
+                <div className="space-y-5">
+                  {/* Top Row: CSS 3D Rotating Sphere + Type Chip */}
+                  <div className="flex items-center justify-between gap-4">
+                    {/* CSS 3D-looking sphere with moving highlight */}
+                    <div
+                      className="relative w-16 h-16 rounded-full overflow-hidden shrink-0 border border-white/20"
+                      style={{
+                        background: `radial-gradient(circle at 30% 28%, ${c1} 0%, ${c2} 58%, #0B0B1E 96%)`,
+                        boxShadow: `inset -8px -8px 18px rgba(11,11,30,0.75), 0 0 24px ${c1}44`,
+                      }}
+                    >
+                      {/* Rotating atmospheric band overlay */}
+                      <div
+                        className="target-sphere-bands absolute inset-0 opacity-35"
+                        style={{
+                          backgroundImage: `repeating-linear-gradient(0deg, transparent 0px, transparent 5px, rgba(255,255,255,0.22) 6px, transparent 10px)`,
+                          backgroundSize: "200% 200%",
+                        }}
+                      />
+                      {/* Moving specular highlight */}
+                      <div
+                        className="target-sphere-highlight absolute w-8 h-8 rounded-full blur-[3px] top-1.5 left-1.5"
+                        style={{
+                          background:
+                            "radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 72%)",
+                        }}
+                      />
+                    </div>
 
-                <p className="text-sm text-cosmic-muted leading-relaxed">
-                  {target.story}
-                </p>
-              </div>
-
-              <div className="space-y-4 pt-2 border-t border-white/10">
-                <div className="flex items-center justify-between text-xs font-mono text-cosmic-muted">
-                  <span>
-                    RA {target.ra.toFixed(2)}° / Dec {target.dec.toFixed(2)}°
-                  </span>
-                  <span>
-                    {target.distanceLy !== null
-                      ? `${target.distanceLy} ly`
-                      : "Variable Flux"}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {target.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-2.5 py-0.5 rounded-full text-[11px] uppercase tracking-wider bg-white/[0.06] text-cosmic-muted border border-white/10"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                    <span
+                      className="px-3.5 py-1.5 rounded-full text-xs font-medium border"
+                      style={{
+                        backgroundColor: `${c1}1A`,
+                        borderColor: `${c1}4D`,
+                        color: "#EDEBFF",
+                      }}
+                    >
+                      {target.type}
+                    </span>
                   </div>
 
+                  {/* Target Name, Big Nickname & Story */}
+                  <div className="space-y-2">
+                    <div className="text-xs font-mono uppercase tracking-wider text-cosmic-muted">
+                      {target.name}
+                    </div>
+                    <h3 className="font-heading text-2xl font-bold text-cosmic-text leading-snug">
+                      {target.nickname}
+                    </h3>
+                    <p className="text-sm text-cosmic-muted leading-relaxed pt-1">
+                      {target.story}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bottom Footer: Distance + Investigate Button */}
+                <div className="pt-4 border-t border-white/10 flex items-center justify-between gap-3">
+                  <span className="text-xs font-medium text-cosmic-muted">
+                    {formatTargetDistance(target.distanceLy)}
+                  </span>
+
                   <Link
-                    href={`/viewer?target=${target.id}&ra=${target.ra}&dec=${target.dec}`}
+                    href={`/viewer?target=${target.id}`}
                     onClick={() => playSound("whoosh")}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-cosmic-text transition-colors"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/10 group-hover:bg-infrared-gradient group-hover:text-[#0B0B1E] text-cosmic-text border border-white/15 transition-all"
                   >
-                    <span>Blink</span>
-                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    <span>Investigate</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
-      {/* Detective Workflow Section */}
-      <section className="glass p-8 sm:p-10">
-        <div className="max-w-2xl mb-8">
-          <span className="text-xs font-mono uppercase tracking-widest text-pastel-mint">
-            Detection Protocol
-          </span>
-          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-cosmic-text mt-1">
-            How Cosmic Detective Works
-          </h2>
-          <p className="text-sm text-cosmic-muted mt-2">
-            Combine multi-epoch frame blinking with SPHEREx low-resolution
-            infrared spectroscopy to verify genuine solar-neighborhood objects.
-          </p>
-        </div>
+      {/* SECTION 4 — WHY IT MATTERS */}
+      <section>
+        <div className="p-[1.5px] rounded-[26px] bg-gradient-to-r from-[#C3B1E1]/50 via-[#FFB5A7]/50 to-[#A2D2FF]/50 shadow-glass-glow">
+          <div className="glass rounded-[25px] p-8 sm:p-12 lg:p-14 bg-[#0B0B1E]/80 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
+            <div className="space-y-4 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider bg-pastel-lavender/15 text-pastel-lavender border border-pastel-lavender/35">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Citizen Science Mission</span>
+              </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-pastel-lavender/15 border border-pastel-lavender/35 flex items-center justify-center text-pastel-lavender">
-              <Layers className="w-5 h-5" />
-            </div>
-            <h3 className="font-heading text-lg font-semibold text-cosmic-text">
-              1. Blink Multi-Epoch Frames
-            </h3>
-            <p className="text-sm text-cosmic-muted leading-relaxed">
-              Step through four 6-month survey epochs (`2025-06` through
-              `2026-12`). Background stars stay locked while nearby high-proper-motion
-              sources shift across pixels.
-            </p>
-          </div>
+              <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-gradient-headline">
+                Too much sky for one person
+              </h2>
 
-          <div className="p-5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-pastel-peach/15 border border-pastel-peach/35 flex items-center justify-center text-pastel-peach">
-              <Activity className="w-5 h-5" />
+              <p className="text-base sm:text-lg text-cosmic-muted leading-relaxed">
+                SPHEREx returns images of more than a billion objects. Most
+                known comets and brown dwarfs were discovered by volunteers
+                comparing images.{" "}
+                <strong className="text-cosmic-text font-semibold">
+                  Your eyes can help.
+                </strong>
+              </p>
             </div>
-            <h3 className="font-heading text-lg font-semibold text-cosmic-text">
-              2. Inspect 102-Band Spectra
-            </h3>
-            <p className="text-sm text-cosmic-muted leading-relaxed">
-              Analyze the 0.75–5.0 μm spectral profile to identify deep methane
-              (CH₄) and water (H₂O) absorption troughs typical of ultracool T and
-              Y brown dwarfs.
-            </p>
-          </div>
 
-          <div className="p-5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-pastel-mint/15 border border-pastel-mint/35 flex items-center justify-center text-pastel-mint">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="shrink-0">
+              <Link
+                href="/explore"
+                onClick={() => playSound("whoosh")}
+                className="inline-flex items-center gap-3 px-8 py-4 rounded-full font-heading font-semibold text-sm sm:text-base tracking-wide bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-opacity"
+              >
+                <span>Start Investigating</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
-            <h3 className="font-heading text-lg font-semibold text-cosmic-text">
-              3. Log &amp; Vet Candidates
-            </h3>
-            <p className="text-sm text-cosmic-muted leading-relaxed">
-              Mark moving sources directly on the sky frame, record astrometric
-              offsets, and submit your candidate to the local citizen-science
-              vetting catalog.
-            </p>
           </div>
         </div>
       </section>
     </PageTransition>
   );
 }
-

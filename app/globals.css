@@ -21,6 +21,10 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   html,
   body {
     background: linear-gradient(
@@ -133,10 +137,55 @@
   }
 }
 
+@keyframes sphereOrbitHighlight {
+  0% {
+    transform: translate(-22%, -18%) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(24%, 14%) rotate(180deg) scale(1.08);
+  }
+  100% {
+    transform: translate(-22%, -18%) rotate(360deg) scale(1);
+  }
+}
+
+@keyframes sphereBandScroll {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.target-sphere-highlight {
+  animation: sphereOrbitHighlight 8s ease-in-out infinite;
+}
+
+.group:hover .target-sphere-highlight {
+  animation-duration: 2.2s;
+}
+
+.target-sphere-bands {
+  animation: sphereBandScroll 10s linear infinite;
+}
+
+.group:hover .target-sphere-bands {
+  animation-duration: 2.8s;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .starfield-layer::before,
+  .starfield-layer::after,
+  .target-sphere-highlight,
+  .target-sphere-bands {
+    animation: none;
+  }
   .starfield-layer::before,
   .starfield-layer::after {
-    animation: none;
     opacity: 0.55;
   }
 }

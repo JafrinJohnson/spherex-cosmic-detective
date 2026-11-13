@@ -8,7 +8,6 @@ import React, {
   useState,
 } from "react";
 import { useReducedMotion } from "framer-motion";
-import confetti from "canvas-confetti";
 import {
   Sparkles,
   Lightbulb,
@@ -18,6 +17,11 @@ import {
 } from "lucide-react";
 import type { Target, TargetMeta } from "@/types";
 import { useSound } from "@/components/SoundProvider";
+import {
+  FoundReveal,
+  pickWeightedObjectType,
+  type RevealObjectType,
+} from "@/components/training/FoundReveal";
 
 export interface RoundOutcome {
   roundId: number;
@@ -31,6 +35,14 @@ export interface RoundOutcome {
   elapsedSeconds: number;
   missedInRound: boolean;
   pointsEarned: number;
+  objectType?: RevealObjectType;
+  compareQuiz?: {
+    prompt: string;
+    options: [string, string, string];
+    correctIndex: number;
+    explanation: string;
+    questionType: "direction" | "brightness" | "count";
+  };
 }
 
 export interface RealSkyBundle {
@@ -165,10 +177,12 @@ export function SpotTheMover({
   // Photo A (0) vs Photo B (1)
   const [photoIndex, setPhotoIndex] = useState<0 | 1>(0);
   const [foundInRound, setFoundInRound] = useState<boolean>(false);
+  const [revealOpen, setRevealOpen] = useState<boolean>(false);
   const [missedInRound, setMissedInRound] = useState<boolean>(false);
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [hintActive, setHintActive] = useState<boolean>(false);
   const [lastPointsAwarded, setLastPointsAwarded] = useState<number>(100);
+  const [lastSpeedBonus, setLastSpeedBonus] = useState<number>(0);
 
   const roundStartRef = useRef<number>(performance.now());
   const hitEffectRef = useRef<{
@@ -181,10 +195,12 @@ export function SpotTheMover({
   >([]);
   const hintStartedAtRef = useRef<number | null>(null);
 
-  // Generate deterministic round data (stars, mover positions, decoy star)
+  // Generate deterministic round data (stars, mover positions, decoy star, weighted objectType)
   const roundData = useMemo(() => {
     const rng = createSeededRng(roundNumber * 7919 + level * 101);
     const palette = ["#EDEBFF", "#C3B1E1", "#A2D2FF", "#FFB5A7", "#B5EAD7"];
+    // Weighted objectType: asteroid 40%, comet 20%, brown-dwarf 20%, red-dwarf 10%, variable-star 10%
+    const objectType = pickWeightedObjectType(rng());
 
     if (useRealSky && canUseRealSky) {
       const bundle =
@@ -203,6 +219,7 @@ export function SpotTheMover({
       return {
         isReal: true,
         bundle,
+        objectType,
         stars: [] as StarParticle[],
         posA,
         posB,
@@ -255,6 +272,7 @@ export function SpotTheMover({
     return {
       isReal: false,
       bundle: null,
+      objectType,
       stars,
       posA,
       posB,
@@ -317,6 +335,7 @@ export function SpotTheMover({
   // Reset round state when roundNumber or mode changes
   useEffect(() => {
     setFoundInRound(false);
+    setRevealOpen(false);
     setMissedInRound(false);
     setElapsedSec(0);
     setHintActive(false);
@@ -574,23 +593,15 @@ export function SpotTheMover({
       const totalPts = 100 + speedBonus;
 
       setLastPointsAwarded(totalPts);
+      setLastSpeedBonus(speedBonus);
       setFoundInRound(true);
+      setRevealOpen(true);
+
       hitEffectRef.current = {
         x: (roundData.posA.x + roundData.posB.x) / 2,
         y: (roundData.posA.y + roundData.posB.y) / 2,
         startedAt: performance.now(),
       };
-
-      playSound("success");
-      try {
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.68 },
-        });
-      } catch {
-        // Ignore confetti errors
-      }
 
       onHit({
         roundId: roundNumber,
@@ -604,6 +615,7 @@ export function SpotTheMover({
         elapsedSeconds: solveTimeSec,
         missedInRound,
         pointsEarned: totalPts,
+        objectType: roundData.objectType,
       });
     } else {
       // Miss -> small peach ripple where tapped, -10 points, soft click sound
@@ -716,55 +728,67 @@ export function SpotTheMover({
         </div>
       </div>
 
-      {/* Bottom Glass Banner when Mover is Found, or Round Controls */}
-      {foundInRound ? (
-        <div className="glass p-5 rounded-2xl bg-pastel-mint/15 border border-pastel-mint/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-pastel-mint font-heading font-bold text-base sm:text-lg">
-              <Sparkles className="w-4 h-4 shrink-0" />
-              <span>Found it! That&apos;s how Pluto was discovered.</span>
-            </div>
-            <p className="text-xs text-cosmic-text">
-              +{lastPointsAwarded} points awarded{" "}
-              {lastPointsAwarded > 100
-                ? "(includes +50 speed bonus under 5s!)"
-                : ""}
-              . Answer the bonus question on the right or jump to the next sky.
-            </p>
-          </div>
+      {/* Bottom Controls Row */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-cosmic-muted">
+        {foundInRound ? (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                playSound("click");
+                setRevealOpen(true);
+              }}
+              className="min-h-[44px] px-4 py-2 rounded-full bg-pastel-mint/15 hover:bg-pastel-mint/25 border border-pastel-mint/45 text-pastel-mint font-semibold inline-flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-mint"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>View 3D Discovery (+{lastPointsAwarded} pts)</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              playSound("whoosh");
-              onNextSky();
-            }}
-            className="min-h-[44px] shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-heading font-semibold text-xs sm:text-sm uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-peach"
-          >
-            <span>Next sky</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-cosmic-muted">
-          <span>
-            Tap within 18 px of the moving dot (+100 pts, +50 under 5s · Miss =
-            −10 pts)
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              playSound("click");
-              onNextSky();
-            }}
-            className="min-h-[44px] px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 text-cosmic-muted hover:text-cosmic-text inline-flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Skip / Next sky (N)</span>
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => {
+                playSound("whoosh");
+                onNextSky();
+              }}
+              className="min-h-[44px] px-6 py-2.5 rounded-full font-heading font-semibold text-xs uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 inline-flex items-center gap-2 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-peach"
+            >
+              <span>Next sky</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            <span>
+              Tap within 18 px of the moving dot (+100 pts, +50 under 5s · Miss =
+              −10 pts)
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                playSound("click");
+                onNextSky();
+              }}
+              className="min-h-[44px] px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 text-cosmic-muted hover:text-cosmic-text inline-flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Skip / Next sky (N)</span>
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* 3D FoundReveal Sequence & Modal */}
+      <FoundReveal
+        open={revealOpen}
+        objectType={roundData.objectType}
+        pointsEarned={lastPointsAwarded}
+        speedBonus={lastSpeedBonus}
+        onNext={() => {
+          setRevealOpen(false);
+          onNextSky();
+        }}
+        onClose={() => setRevealOpen(false)}
+      />
     </div>
   );
 }
-

@@ -24,10 +24,21 @@ export function QuizCard({
   // Reset choice when a new round outcome arrives
   useEffect(() => {
     setSelectedIdx(null);
-  }, [lastOutcome?.roundId]);
+  }, [lastOutcome?.roundId, lastOutcome?.compareQuiz?.prompt]);
 
   const questionData = useMemo(() => {
     if (!lastOutcome) return null;
+
+    // If this outcome came from "Compare the Skies", use its tailored quiz question
+    if (lastOutcome.compareQuiz) {
+      return {
+        type: lastOutcome.compareQuiz.questionType,
+        prompt: lastOutcome.compareQuiz.prompt,
+        options: lastOutcome.compareQuiz.options,
+        correctIndex: lastOutcome.compareQuiz.correctIndex,
+        explanation: lastOutcome.compareQuiz.explanation,
+      };
+    }
 
     // Rotate question types across rounds; prioritize brightness question when a decoy is active or on every 2nd round
     const mod = lastOutcome.roundId % 3;
@@ -156,7 +167,7 @@ export function QuizCard({
         <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center gap-3 text-xs sm:text-sm text-cosmic-muted">
           <HelpCircle className="w-5 h-5 text-[#FFC8DD] shrink-0" />
           <span>
-            Tap the moving dot in the star field first to unlock this round&apos;s
+            Complete the active sky challenge first to unlock this round&apos;s
             observation quiz (+50 bonus points).
           </span>
         </div>
@@ -246,4 +257,3 @@ export function QuizCard({
     </div>
   );
 }
-

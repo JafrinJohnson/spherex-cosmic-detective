@@ -10,6 +10,8 @@ import {
   RotateCcw,
   Sparkles,
   Keyboard,
+  Crosshair,
+  Columns2,
 } from "lucide-react";
 import { getTargets, getFrames } from "@/lib/api";
 import {
@@ -17,6 +19,7 @@ import {
   type RoundOutcome,
   type RealSkyBundle,
 } from "@/components/training/SpotTheMover";
+import { CompareSkies } from "@/components/training/CompareSkies";
 import {
   QuizCard,
   type QuizQuestionType,
@@ -26,6 +29,9 @@ import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
 
 const TRAINING_STORAGE_KEY = "cosmic-detective-training-progress-v1";
+const TRAINING_TAB_STORAGE_KEY = "cosmic-detective-training-tab-v1";
+
+export type TrainingGameTab = "spot" | "compare";
 
 export type BadgeId =
   | "cadet"
@@ -33,7 +39,8 @@ export type BadgeId =
   | "planet-hunter"
   | "sharp-eye"
   | "quick-draw"
-  | "variable-spotter";
+  | "variable-spotter"
+  | "change-finder";
 
 interface BadgeDef {
   id: BadgeId;
@@ -78,6 +85,12 @@ const BADGE_DEFINITIONS: BadgeDef[] = [
     name: "Variable Spotter",
     requirement: "Brightness quiz correct",
     gradient: "from-[#FFC8DD] to-[#B5EAD7]",
+  },
+  {
+    id: "change-finder",
+    name: "Change Finder",
+    requirement: "Complete 5 Compare rounds",
+    gradient: "from-[#A2D2FF] to-[#B5EAD7]",
   },
 ];
 
@@ -125,7 +138,12 @@ function BadgeSvgIcon({ id }: { id: BadgeId }) {
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="12" r="8" stroke="#0B0B1E" strokeWidth="2" />
           <circle cx="12" cy="12" r="2.5" fill="#0B0B1E" />
-          <path d="M12 2V5M12 19V22M2 12H5M19 12H22" stroke="#0B0B1E" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d="M12 2V5M12 19V22M2 12H5M19 12H22"
+            stroke="#0B0B1E"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
         </svg>
       );
     case "quick-draw":
@@ -149,6 +167,31 @@ function BadgeSvgIcon({ id }: { id: BadgeId }) {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+        </svg>
+      );
+    case "change-finder":
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect
+            x="3"
+            y="4"
+            width="7.5"
+            height="16"
+            rx="2"
+            stroke="#0B0B1E"
+            strokeWidth="2"
+          />
+          <rect
+            x="13.5"
+            y="4"
+            width="7.5"
+            height="16"
+            rx="2"
+            stroke="#0B0B1E"
+            strokeWidth="2"
+          />
+          <circle cx="6.75" cy="9.5" r="1.5" fill="#0B0B1E" />
+          <circle cx="17.25" cy="14.5" r="1.5" fill="#0B0B1E" />
         </svg>
       );
   }
@@ -187,6 +230,7 @@ function useAnimatedCount(targetValue: number, durationMs = 420): number {
 interface StoredTrainingProgress {
   score: number;
   moversFound: number;
+  compareRoundsCompleted?: number;
   streak: number;
   bestTimeSec: number | null;
   unlockedBadges: BadgeId[];
@@ -197,9 +241,14 @@ export default function TrainingPage() {
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
 
+  // Active Game Tab ("spot" | "compare"), persisted in localStorage
+  const [activeTab, setActiveTab] = useState<TrainingGameTab>("spot");
+
   // Persisted progress states
   const [score, setScore] = useState<number>(0);
   const [moversFound, setMoversFound] = useState<number>(0);
+  const [compareRoundsCompleted, setCompareRoundsCompleted] =
+    useState<number>(0);
   const [streak, setStreak] = useState<number>(0);
   const [bestTimeSec, setBestTimeSec] = useState<number | null>(null);
   const [unlockedBadges, setUnlockedBadges] = useState<BadgeId[]>(["cadet"]);
@@ -213,6 +262,7 @@ export default function TrainingPage() {
   const [howToPlayOpen, setHowToPlayOpen] = useState<boolean>(false);
   const [resetModalOpen, setResetModalOpen] = useState<boolean>(false);
   const [hintTriggerSeq, setHintTriggerSeq] = useState<number>(0);
+  const [blinkTriggerSeq, setBlinkTriggerSeq] = useState<number>(0);
 
   // Real sky bundles loaded from getTargets() + getFrames()
   const [realSkyBundles, setRealSkyBundles] = useState<RealSkyBundle[]>([]);
@@ -220,15 +270,23 @@ export default function TrainingPage() {
   const animatedScore = useAnimatedCount(score);
   const animatedFinds = useAnimatedCount(moversFound);
 
-  // Load saved progress from localStorage + load real sky frames
+  // Load saved progress & tab from localStorage + load real sky frames
   useEffect(() => {
     try {
+      const savedTab = window.localStorage.getItem(TRAINING_TAB_STORAGE_KEY);
+      if (savedTab === "spot" || savedTab === "compare") {
+        setActiveTab(savedTab);
+      }
+
       const raw = window.localStorage.getItem(TRAINING_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as StoredTrainingProgress;
         if (typeof parsed.score === "number") setScore(parsed.score);
         if (typeof parsed.moversFound === "number")
           setMoversFound(parsed.moversFound);
+        if (typeof parsed.compareRoundsCompleted === "number") {
+          setCompareRoundsCompleted(parsed.compareRoundsCompleted);
+        }
         if (typeof parsed.streak === "number") setStreak(parsed.streak);
         if (
           parsed.bestTimeSec === null ||
@@ -236,7 +294,10 @@ export default function TrainingPage() {
         ) {
           setBestTimeSec(parsed.bestTimeSec);
         }
-        if (Array.isArray(parsed.unlockedBadges) && parsed.unlockedBadges.length > 0) {
+        if (
+          Array.isArray(parsed.unlockedBadges) &&
+          parsed.unlockedBadges.length > 0
+        ) {
           setUnlockedBadges(parsed.unlockedBadges);
         }
         if (typeof parsed.roundNumber === "number" && parsed.roundNumber >= 1) {
@@ -272,6 +333,7 @@ export default function TrainingPage() {
       const payload: StoredTrainingProgress = {
         score,
         moversFound,
+        compareRoundsCompleted,
         streak,
         bestTimeSec,
         unlockedBadges,
@@ -288,17 +350,32 @@ export default function TrainingPage() {
     hydrated,
     score,
     moversFound,
+    compareRoundsCompleted,
     streak,
     bestTimeSec,
     unlockedBadges,
     roundNumber,
   ]);
 
+  const handleSelectTab = useCallback(
+    (tab: TrainingGameTab) => {
+      playSound("click");
+      setActiveTab(tab);
+      try {
+        window.localStorage.setItem(TRAINING_TAB_STORAGE_KEY, tab);
+      } catch {
+        // Ignore storage errors
+      }
+    },
+    [playSound]
+  );
+
   // Helper to check and unlock badges with celebration modal
   const checkAndUnlockBadges = useCallback(
     (params: {
       nextScore: number;
       nextStreak: number;
+      nextCompareRounds?: number;
       solveTimeSec?: number;
       answeredBrightnessCorrectly?: boolean;
     }) => {
@@ -325,6 +402,12 @@ export default function TrainingPage() {
         }
         if (params.answeredBrightnessCorrectly) {
           tryUnlock("variable-spotter");
+        }
+        if (
+          params.nextCompareRounds !== undefined &&
+          params.nextCompareRounds >= 5
+        ) {
+          tryUnlock("change-finder");
         }
 
         if (freshlyUnlocked) {
@@ -366,10 +449,65 @@ export default function TrainingPage() {
       checkAndUnlockBadges({
         nextScore,
         nextStreak,
+        nextCompareRounds: compareRoundsCompleted,
         solveTimeSec: outcome.elapsedSeconds,
       });
     },
-    [score, moversFound, streak, bestTimeSec, checkAndUnlockBadges]
+    [
+      score,
+      moversFound,
+      streak,
+      bestTimeSec,
+      compareRoundsCompleted,
+      checkAndUnlockBadges,
+    ]
+  );
+
+  // Compare the Skies handlers
+  const handleCompareChangeFound = useCallback(
+    (pts: number) => {
+      const nextScore = score + pts;
+      setScore(nextScore);
+      checkAndUnlockBadges({
+        nextScore,
+        nextStreak: streak,
+        nextCompareRounds: compareRoundsCompleted,
+      });
+    },
+    [score, streak, compareRoundsCompleted, checkAndUnlockBadges]
+  );
+
+  const handleCompareRoundComplete = useCallback(
+    (outcome: RoundOutcome) => {
+      const nextCompare = compareRoundsCompleted + 1;
+      const nextFinds = moversFound + 1;
+      const nextStreak = outcome.missedInRound ? 1 : streak + 1;
+      const nextBest =
+        bestTimeSec === null
+          ? outcome.elapsedSeconds
+          : Math.min(bestTimeSec, outcome.elapsedSeconds);
+
+      setCompareRoundsCompleted(nextCompare);
+      setMoversFound(nextFinds);
+      setStreak(nextStreak);
+      setBestTimeSec(nextBest);
+      setLastOutcome(outcome);
+
+      checkAndUnlockBadges({
+        nextScore: score,
+        nextStreak,
+        nextCompareRounds: nextCompare,
+        solveTimeSec: outcome.elapsedSeconds,
+      });
+    },
+    [
+      compareRoundsCompleted,
+      moversFound,
+      streak,
+      bestTimeSec,
+      score,
+      checkAndUnlockBadges,
+    ]
   );
 
   const handleMiss = useCallback(() => {
@@ -377,8 +515,8 @@ export default function TrainingPage() {
     setStreak(0);
   }, []);
 
-  const handleUseHint = useCallback(() => {
-    setScore((prev) => Math.max(0, prev - 30));
+  const handleDeductPoints = useCallback((pts: number) => {
+    setScore((prev) => Math.max(0, prev - pts));
   }, []);
 
   const handleNextSky = useCallback(() => {
@@ -393,16 +531,18 @@ export default function TrainingPage() {
       checkAndUnlockBadges({
         nextScore,
         nextStreak: streak,
+        nextCompareRounds: compareRoundsCompleted,
         answeredBrightnessCorrectly: questionType === "brightness",
       });
     },
-    [score, streak, checkAndUnlockBadges]
+    [score, streak, compareRoundsCompleted, checkAndUnlockBadges]
   );
 
   const confirmResetProgress = () => {
     playSound("click");
     setScore(0);
     setMoversFound(0);
+    setCompareRoundsCompleted(0);
     setStreak(0);
     setBestTimeSec(null);
     setUnlockedBadges(["cadet"]);
@@ -416,13 +556,24 @@ export default function TrainingPage() {
     }
   };
 
-  // Global keyboard shortcuts: N = next sky, H = hint
+  // Global keyboard shortcuts: Tab switches game tabs (when not in a modal), B = blink helper, H = hint, N = next sky
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (target?.closest('[role="dialog"]')) return;
 
-      if (e.key === "n" || e.key === "N") {
+      if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Switch between "Spot the Mover" and "Compare the Skies" tabs
+        e.preventDefault();
+        handleSelectTab(activeTab === "spot" ? "compare" : "spot");
+      } else if (e.key === "b" || e.key === "B") {
+        if (activeTab === "compare") {
+          e.preventDefault();
+          setBlinkTriggerSeq((s) => s + 1);
+        }
+      } else if (e.key === "n" || e.key === "N") {
         e.preventDefault();
         playSound("whoosh");
         handleNextSky();
@@ -433,11 +584,11 @@ export default function TrainingPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playSound, handleNextSky]);
+  }, [activeTab, handleSelectTab, playSound, handleNextSky]);
 
   return (
     <PageTransition className="max-w-[1200px] mx-auto space-y-8 pb-16">
-      {/* Top Header & Collapsible "How to play" + "Reset progress" */}
+      {/* Top Header, Game Mode Glass Tabs & Collapsible "How to play" + "Reset progress" */}
       <section className="glass p-6 sm:p-8 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -446,6 +597,43 @@ export default function TrainingPage() {
               <span>Training Mode</span>
             </span>
             <SampleDataBadge source="placeholder" />
+          </div>
+
+          {/* Game Tabs: "Spot the Mover" | "Compare the Skies" */}
+          <div
+            role="tablist"
+            aria-label="Training game modes"
+            className="inline-flex items-center p-1 rounded-full bg-white/[0.05] border border-white/15"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "spot"}
+              onClick={() => handleSelectTab("spot")}
+              className={`min-h-[44px] px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-mint ${
+                activeTab === "spot"
+                  ? "bg-pastel-mint/25 border border-pastel-mint/60 text-cosmic-text shadow-sm"
+                  : "text-cosmic-muted hover:text-cosmic-text"
+              }`}
+            >
+              <Crosshair className="w-4 h-4 text-pastel-mint" />
+              <span>Spot the Mover</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "compare"}
+              onClick={() => handleSelectTab("compare")}
+              className={`min-h-[44px] px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-sky ${
+                activeTab === "compare"
+                  ? "bg-pastel-sky/25 border border-pastel-sky/60 text-cosmic-text shadow-sm"
+                  : "text-cosmic-muted hover:text-cosmic-text"
+              }`}
+            >
+              <Columns2 className="w-4 h-4 text-pastel-sky" />
+              <span>Compare the Skies</span>
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -497,21 +685,20 @@ export default function TrainingPage() {
               <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-cosmic-muted">
                 <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
                   <div className="font-heading font-semibold text-pastel-mint">
-                    1. Watch the Blink
+                    1. Spot the Mover
                   </div>
                   <p>
-                    Photo A and Photo B flip every 650 ms. Background stars
-                    remain fixed while one nearby object jumps between visits.
+                    Photo A and Photo B flip every 650 ms. Tap the one dot that
+                    jumps position to unlock its 3D cosmic reveal.
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
                   <div className="font-heading font-semibold text-pastel-peach">
-                    2. Watch Out for Decoys
+                    2. Compare the Skies
                   </div>
                   <p>
-                    From Level 3 onward, a variable decoy star pulses in
-                    brightness without changing coordinates. Only tap the star
-                    that moves!
+                    Inspect Visit 1 and Visit 2 side by side to find every star
+                    that moved, brightened, appeared, or disappeared.
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
@@ -520,11 +707,12 @@ export default function TrainingPage() {
                     <span>3. Keyboard Shortcuts</span>
                   </div>
                   <p>
-                    Press <code className="text-cosmic-text">N</code> for next
-                    sky, <code className="text-cosmic-text">H</code> for a hint
-                    (after 8 s), and{" "}
-                    <code className="text-cosmic-text">1 / 2 / 3</code> to
-                    answer the observation quiz.
+                    Press <code className="text-cosmic-text">Tab</code> to
+                    switch games, <code className="text-cosmic-text">B</code> to
+                    blink, <code className="text-cosmic-text">H</code> for a
+                    hint, <code className="text-cosmic-text">N</code> for next
+                    sky, and <code className="text-cosmic-text">1/2/3</code> for
+                    quizzes.
                   </p>
                 </div>
               </div>
@@ -535,18 +723,32 @@ export default function TrainingPage() {
 
       {/* MAIN TWO-COLUMN LAYOUT (Desktop two columns, Mobile stacked) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Wide Column (7 cols): Spot the Mover Game Card */}
+        {/* Left Wide Column (7 cols): Active Game Card */}
         <div className="lg:col-span-7 w-full">
-          <SpotTheMover
-            moversFound={moversFound}
-            roundNumber={roundNumber}
-            realSkyBundles={realSkyBundles}
-            onHit={handleHit}
-            onMiss={handleMiss}
-            onUseHint={handleUseHint}
-            onNextSky={handleNextSky}
-            hintTriggerSeq={hintTriggerSeq}
-          />
+          {activeTab === "spot" ? (
+            <SpotTheMover
+              moversFound={moversFound}
+              roundNumber={roundNumber}
+              realSkyBundles={realSkyBundles}
+              onHit={handleHit}
+              onMiss={handleMiss}
+              onUseHint={() => handleDeductPoints(30)}
+              onNextSky={handleNextSky}
+              hintTriggerSeq={hintTriggerSeq}
+            />
+          ) : (
+            <CompareSkies
+              compareRoundsCompleted={compareRoundsCompleted}
+              roundNumber={roundNumber}
+              onChangeFound={handleCompareChangeFound}
+              onMiss={handleMiss}
+              onDeductPoints={handleDeductPoints}
+              onRoundComplete={handleCompareRoundComplete}
+              onNextRound={handleNextSky}
+              hintTriggerSeq={hintTriggerSeq}
+              blinkTriggerSeq={blinkTriggerSeq}
+            />
+          )}
         </div>
 
         {/* Right Column (5 cols): Score Card + Quiz Card + Badges Card */}

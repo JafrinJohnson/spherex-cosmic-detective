@@ -489,6 +489,10 @@ export default function AboutPage() {
               <strong className="text-cosmic-text">WISE / NEOWISE (NASA)</strong>
               .
             </p>
+            <p className="text-sm text-cosmic-muted leading-relaxed">
+              Planet textures: Solar System Scope (solarsystemscope.com), CC BY
+              4.0.
+            </p>
           </div>
 
           <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 text-xs text-cosmic-muted leading-relaxed">

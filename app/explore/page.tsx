@@ -1,344 +1,405 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { motion, useReducedMotion } from "framer-motion";
+import { Compass, Sparkles, Orbit } from "lucide-react";
+import { getTargets, getFrames } from "@/lib/api";
+import { parseRA, parseDec } from "@/lib/coords";
+import type { Target, TargetMeta } from "@/types";
 import {
-  Compass,
-  Search,
-  Filter,
-  ArrowUpRight,
-  Sparkles,
-  Crosshair,
-} from "lucide-react";
-import { getTargets, searchSky } from "@/lib/api";
-import type { Target, SkySearchResult } from "@/types";
+  SearchPanel,
+  type RecentSearchEntry,
+} from "@/components/explore/SearchPanel";
 import { PageTransition } from "@/components/PageTransition";
 import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
 
-const TAG_FILTERS = [
-  { id: "all", label: "All Objects" },
-  { id: "fast", label: "Fast Proper Motion" },
-  { id: "brown-dwarf", label: "Brown Dwarfs" },
-  { id: "variable", label: "Variable Stars" },
-];
+const SkyGlobe = dynamic(() => import("@/components/three/SkyGlobe"), {
+  ssr: false,
+  loading: () => (
+    <div className="glass p-4 sm:p-6 flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Compass className="w-4 h-4 text-pastel-lavender animate-spin" />
+          <span className="font-heading text-sm font-semibold text-cosmic-text">
+            3D Celestial Sphere (J2000)
+          </span>
+        </div>
+        <span className="text-xs font-mono text-cosmic-muted">
+          RA 2h Grid · Dec 30° Grid
+        </span>
+      </div>
+      <div className="relative w-full h-[360px] sm:h-[440px] lg:h-[500px] rounded-2xl bg-[#0B0B1E]/65 border border-white/10 flex flex-col items-center justify-center gap-3">
+        <div className="w-40 h-40 rounded-full border border-pastel-lavender/35 bg-pastel-lavender/5 flex items-center justify-center shadow-[0_0_50px_rgba(195,177,225,0.2)]">
+          <Orbit className="w-8 h-8 text-pastel-lavender animate-pulse" />
+        </div>
+        <span className="text-xs font-mono uppercase tracking-widest text-cosmic-muted">
+          Loading Celestial Sphere...
+        </span>
+      </div>
+    </div>
+  ),
+});
+
+const RECENT_STORAGE_KEY = "cosmic-detective-recent-searches";
+
+const QUICK_PICK_LABELS: Record<string, string> = {
+  "barnards-star": "Barnard's Star",
+  "wise-0855": "WISE 0855",
+  "eps-indi-b": "Epsilon Indi B",
+  "rw-aurigae": "RW Aurigae",
+  "r-draconis": "R Draconis",
+};
 
 export default function ExplorePage() {
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [activeTag, setActiveTag] = useState<string>("all");
-  const [raInput, setRaInput] = useState<string>("269.4521");
-  const [decInput, setDecInput] = useState<string>("4.6934");
-  const [fovInput, setFovInput] = useState<string>("15");
-  const [searchResult, setSearchResult] = useState<SkySearchResult | null>(
-    null
-  );
-  const [searching, setSearching] = useState<boolean>(false);
+  const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
 
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [meta, setMeta] = useState<TargetMeta | null>(null);
+
+  // Search form states
+  const [objectQuery, setObjectQuery] = useState<string>("Barnard's Star");
+  const [raInput, setRaInput] = useState<string>("269.4521");
+  const [decInput, setDecInput] = useState<string>("4.6934");
+  const [fov, setFov] = useState<number>(5);
+  const [band, setBand] = useState<string>("all");
+  const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
+
+  // 3D Globe rotation request state
+  const [focusRequest, setFocusRequest] = useState<{
+    ra: number;
+    dec: number;
+    seq: number;
+  } | null>({ ra: 269.4521, dec: 4.6934, seq: 1 });
+
+  // Recent searches (max 5 in localStorage)
+  const [recentSearches, setRecentSearches] = useState<RecentSearchEntry[]>([]);
+
+  // Load targets and recent searches
   useEffect(() => {
-    let mounted = true;
+    let active = true;
     getTargets().then((list) => {
-      if (mounted) setTargets(list);
+      if (!active) return;
+      setTargets(list);
+      const first = list[0] ?? null;
+      if (first) {
+        setSelectedTarget(first);
+        setObjectQuery(first.name);
+        setRaInput(String(first.ra));
+        setDecInput(String(first.dec));
+        getFrames(first.id).then((m) => {
+          if (active) setMeta(m);
+        });
+      }
     });
-    searchSky(269.4521, 4.6934, 15).then((res) => {
-      if (mounted) setSearchResult(res);
-    });
+
+    try {
+      const saved = window.localStorage.getItem(RECENT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as RecentSearchEntry[];
+        if (Array.isArray(parsed)) {
+          setRecentSearches(parsed.slice(0, 5));
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+
     return () => {
-      mounted = false;
+      active = false;
     };
   }, []);
 
-  const filteredTargets =
-    activeTag === "all"
-      ? targets
-      : targets.filter((t) => t.tags.includes(activeTag));
+  const parsedRa = parseRA(raInput);
+  const parsedDec = parseDec(decInput);
+  const validCoords =
+    parsedRa !== null && parsedDec !== null
+      ? { ra: parsedRa, dec: parsedDec }
+      : null;
 
-  const handleConeSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    playSound("whoosh");
-    setSearching(true);
-    const ra = parseFloat(raInput);
-    const dec = parseFloat(decInput);
-    const fov = parseFloat(fovInput);
-    const res = await searchSky(ra, dec, fov);
-    setSearchResult(res);
-    setSearching(false);
+  // Rotate globe whenever user types valid RA/Dec
+  useEffect(() => {
+    if (parsedRa !== null && parsedDec !== null) {
+      setFocusRequest((prev) => ({
+        ra: parsedRa,
+        dec: parsedDec,
+        seq: (prev?.seq ?? 0) + 1,
+      }));
+    }
+  }, [parsedRa, parsedDec]);
+
+  const handleSelectTarget = useCallback(
+    (target: Target) => {
+      playSound("click");
+      setSelectedTarget(target);
+      setObjectQuery(target.name);
+      setRaInput(String(target.ra));
+      setDecInput(String(target.dec));
+      setFocusRequest((prev) => ({
+        ra: target.ra,
+        dec: target.dec,
+        seq: (prev?.seq ?? 0) + 1,
+      }));
+    },
+    [playSound]
+  );
+
+  const handleRaChange = (val: string) => {
+    setRaInput(val);
+    const pRa = parseRA(val);
+    const pDec = parseDec(decInput);
+    if (
+      selectedTarget &&
+      (pRa === null ||
+        Math.abs(pRa - selectedTarget.ra) > 0.005 ||
+        pDec === null ||
+        Math.abs(pDec - selectedTarget.dec) > 0.005)
+    ) {
+      setSelectedTarget(null);
+    }
+  };
+
+  const handleDecChange = (val: string) => {
+    setDecInput(val);
+    const pRa = parseRA(raInput);
+    const pDec = parseDec(val);
+    if (
+      selectedTarget &&
+      (pDec === null ||
+        Math.abs(pDec - selectedTarget.dec) > 0.005 ||
+        pRa === null ||
+        Math.abs(pRa - selectedTarget.ra) > 0.005)
+    ) {
+      setSelectedTarget(null);
+    }
+  };
+
+  const handleObjectQueryChange = (val: string) => {
+    setObjectQuery(val);
+    const match = targets.find(
+      (t) =>
+        t.name.toLowerCase() === val.trim().toLowerCase() ||
+        t.nickname.toLowerCase() === val.trim().toLowerCase()
+    );
+    if (match) {
+      setSelectedTarget(match);
+      setRaInput(String(match.ra));
+      setDecInput(String(match.dec));
+    } else {
+      setSelectedTarget(null);
+    }
+  };
+
+  const saveRecentSearch = (entry: RecentSearchEntry) => {
+    setRecentSearches((prev) => {
+      const deduped = prev.filter(
+        (item) =>
+          !(
+            Math.abs(item.ra - entry.ra) < 0.001 &&
+            Math.abs(item.dec - entry.dec) < 0.001 &&
+            item.band === entry.band &&
+            item.fov === entry.fov
+          )
+      );
+      const updated = [entry, ...deduped].slice(0, 5);
+      try {
+        window.localStorage.setItem(
+          RECENT_STORAGE_KEY,
+          JSON.stringify(updated)
+        );
+      } catch {
+        // Ignore localStorage quota or privacy errors
+      }
+      return updated;
+    });
+  };
+
+  const navigateToViewer = (params: {
+    ra: number;
+    dec: number;
+    fov: number;
+    band: string;
+    targetId?: string;
+    label: string;
+  }) => {
+    const entry: RecentSearchEntry = {
+      id: `search-${Date.now()}`,
+      label: params.label,
+      ra: params.ra,
+      dec: params.dec,
+      fov: params.fov,
+      band: params.band,
+      targetId: params.targetId,
+    };
+    saveRecentSearch(entry);
+
+    const searchParams = new URLSearchParams({
+      ra: String(params.ra),
+      dec: String(params.dec),
+      fov: String(params.fov),
+      band: params.band,
+    });
+    if (params.targetId) {
+      searchParams.set("target", params.targetId);
+    }
+    router.push(`/viewer?${searchParams.toString()}`);
+  };
+
+  const handleSelectRecent = (entry: RecentSearchEntry) => {
+    setRaInput(String(entry.ra));
+    setDecInput(String(entry.dec));
+    setFov(entry.fov);
+    setBand(entry.band);
+    const matched = entry.targetId
+      ? targets.find((t) => t.id === entry.targetId) ?? null
+      : null;
+    setSelectedTarget(matched);
+    setObjectQuery(matched ? matched.name : entry.label);
+
+    const searchParams = new URLSearchParams({
+      ra: String(entry.ra),
+      dec: String(entry.dec),
+      fov: String(entry.fov),
+      band: entry.band,
+    });
+    if (entry.targetId) {
+      searchParams.set("target", entry.targetId);
+    }
+    router.push(`/viewer?${searchParams.toString()}`);
+  };
+
+  const handleClearRecent = () => {
+    setRecentSearches([]);
+    try {
+      window.localStorage.removeItem(RECENT_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors
+    }
   };
 
   return (
-    <PageTransition className="space-y-12 pb-8">
-      {/* Header Banner */}
-      <section className="glass p-8 sm:p-10 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wider uppercase bg-pastel-sky/15 border border-pastel-sky/35 text-pastel-sky">
+    <PageTransition className="max-w-[1200px] mx-auto space-y-10 pb-16">
+      {/* Page Header */}
+      <motion.section
+        initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="space-y-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider bg-pastel-sky/15 border border-pastel-sky/35 text-pastel-sky">
             <Compass className="w-3.5 h-3.5" />
-            <span>SPHEREx All-Sky Cone Search &amp; Target Archive</span>
+            <span>SPHEREx All-Sky Navigator</span>
           </div>
-          <SampleDataBadge source={searchResult?.source ?? "placeholder"} />
+          <SampleDataBadge source={meta?.source ?? "placeholder"} />
         </div>
 
-        <div className="max-w-3xl space-y-3">
+        <div className="space-y-2 max-w-2xl">
           <h1 className="font-heading text-3xl sm:text-5xl font-bold text-gradient-headline">
-            Explore the Infrared Sky
+            Where should we look?
           </h1>
-          <p className="text-cosmic-muted text-base leading-relaxed">
-            Query the SPHEREx coordinate catalog by Right Ascension and
-            Declination (J2000), or filter curated high-proper-motion and
-            variable targets ready for multi-epoch frame blinking.
+          <p className="text-base sm:text-lg text-cosmic-muted leading-relaxed">
+            Enter a position in the sky, or pick a famous mover.
           </p>
         </div>
 
-        {/* Coordinate Cone Search Form */}
-        <form
-          onSubmit={handleConeSearch}
-          className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2"
-        >
-          <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/15">
-            <label
-              htmlFor="ra-input"
-              className="block text-[11px] font-mono uppercase tracking-wider text-cosmic-muted"
-            >
-              Right Ascension (deg)
-            </label>
-            <input
-              id="ra-input"
-              type="number"
-              step="0.0001"
-              value={raInput}
-              onChange={(e) => setRaInput(e.target.value)}
-              className="mt-1 w-full bg-transparent font-mono text-base text-cosmic-text focus:outline-none"
-              placeholder="0.0000 – 360.0000"
-            />
+        {/* QUICK PICKS: Row of 5 glass chips "Famous movers" */}
+        <div className="pt-2 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-pastel-lavender">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Famous movers</span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/15">
-            <label
-              htmlFor="dec-input"
-              className="block text-[11px] font-mono uppercase tracking-wider text-cosmic-muted"
-            >
-              Declination (deg)
-            </label>
-            <input
-              id="dec-input"
-              type="number"
-              step="0.0001"
-              value={decInput}
-              onChange={(e) => setDecInput(e.target.value)}
-              className="mt-1 w-full bg-transparent font-mono text-base text-cosmic-text focus:outline-none"
-              placeholder="-90.0000 – +90.0000"
-            />
-          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {targets.map((target) => {
+              const isSelected = selectedTarget?.id === target.id;
+              const shortLabel =
+                QUICK_PICK_LABELS[target.id] ?? target.name;
+              const primaryColor = target.colors?.[0] || "#FFB5A7";
 
-          <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/15">
-            <label
-              htmlFor="fov-input"
-              className="block text-[11px] font-mono uppercase tracking-wider text-cosmic-muted"
-            >
-              Field of View (arcmin)
-            </label>
-            <input
-              id="fov-input"
-              type="number"
-              step="1"
-              min="1"
-              max="120"
-              value={fovInput}
-              onChange={(e) => setFovInput(e.target.value)}
-              className="mt-1 w-full bg-transparent font-mono text-base text-cosmic-text focus:outline-none"
-              placeholder="15"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={searching}
-            className="rounded-2xl font-heading font-semibold text-sm uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-opacity flex items-center justify-center gap-2 px-6 py-4"
-          >
-            <Search className="w-4 h-4" />
-            <span>{searching ? "Querying..." : "Search Sky"}</span>
-          </button>
-        </form>
-
-        {/* Cone Search Match Banner */}
-        {searchResult && searchResult.matchedTarget && (
-          <div className="p-5 rounded-2xl bg-white/[0.05] border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-mono text-pastel-mint">
-                <Crosshair className="w-3.5 h-3.5" />
-                <span>
-                  NEAREST ARCHIVE FIELD FOR RA {searchResult.ra.toFixed(4)}°,
-                  DEC {searchResult.dec.toFixed(4)}° (FOV{" "}
-                  {searchResult.fovArcmin}&prime;)
-                </span>
-              </div>
-              <div className="font-heading text-lg font-bold text-cosmic-text">
-                {searchResult.matchedTarget.name}{" "}
-                <span className="text-sm font-normal text-cosmic-muted">
-                  ({searchResult.matchedTarget.nickname})
-                </span>
-              </div>
-              <p className="text-xs text-cosmic-muted">
-                Angular separation:{" "}
-                {searchResult.nearbyTargets[0]?.separationDeg.toFixed(3)}° ·
-                Pixel scale: {searchResult.meta.pixelScaleArcsec}&Prime;/px
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <SampleDataBadge source={searchResult.source} />
-              <Link
-                href={`/viewer?target=${searchResult.matchedTarget.id}&ra=${searchResult.ra}&dec=${searchResult.dec}`}
-                onClick={() => playSound("whoosh")}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/15 hover:bg-white/25 text-cosmic-text transition-colors"
-              >
-                <span>Open in Viewer</span>
-                <ArrowUpRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Filter Bar & Target Grid */}
-      <section className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-pastel-lavender" />
-            <span className="text-xs font-mono uppercase tracking-wider text-cosmic-muted">
-              Filter by Astrophysical Class
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {TAG_FILTERS.map((f) => {
-              const active = activeTag === f.id;
               return (
                 <button
-                  key={f.id}
+                  key={target.id}
                   type="button"
-                  onClick={() => {
-                    playSound("click");
-                    setActiveTag(f.id);
+                  onClick={() => handleSelectTarget(target)}
+                  style={{
+                    borderColor: isSelected ? primaryColor : undefined,
+                    backgroundColor: isSelected
+                      ? `${primaryColor}26`
+                      : undefined,
                   }}
-                  className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                    active
-                      ? "bg-pastel-lavender/25 border border-pastel-lavender text-cosmic-text"
-                      : "glass text-cosmic-muted hover:text-cosmic-text"
+                  className={`glass px-4 py-2 rounded-full text-xs sm:text-sm font-medium flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${
+                    isSelected
+                      ? "text-cosmic-text shadow-sm"
+                      : "text-cosmic-muted hover:text-cosmic-text"
                   }`}
                 >
-                  {f.label}
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: primaryColor }}
+                  />
+                  <span>{shortLabel}</span>
                 </button>
               );
             })}
           </div>
         </div>
+      </motion.section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredTargets.map((target) => (
-            <div
-              key={target.id}
-              className="glass p-6 sm:p-7 flex flex-col justify-between gap-6"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-3 h-3 rounded-full"
-                      style={{
-                        background: `linear-gradient(135deg, ${target.colors[0]}, ${target.colors[1]})`,
-                      }}
-                    />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-pastel-sky">
-                      {target.type}
-                    </span>
-                  </div>
-                  <SampleDataBadge source="placeholder" />
-                </div>
+      {/* Main Two-Column Layout (Mobile: stacked with Globe on top; Desktop: two columns) */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Column 1 (Top on Mobile, Left on Desktop): 3D Sky Globe */}
+        <motion.div
+          initial={
+            prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 18 }
+          }
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.05 }}
+          className="lg:col-span-6 w-full"
+        >
+          <SkyGlobe
+            targets={targets}
+            selectedTargetId={selectedTarget?.id ?? null}
+            crosshairCoords={validCoords}
+            focusRequest={focusRequest}
+            onSelectTarget={handleSelectTarget}
+          />
+        </motion.div>
 
-                <div>
-                  <h2 className="font-heading text-2xl font-bold text-cosmic-text">
-                    {target.name}
-                  </h2>
-                  <p className="text-sm font-medium text-pastel-peach">
-                    {target.nickname}
-                  </p>
-                </div>
-
-                <p className="text-sm text-cosmic-muted leading-relaxed">
-                  {target.story}
-                </p>
-
-                <div className="grid grid-cols-3 gap-3 pt-2">
-                  <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10">
-                    <div className="text-[10px] font-mono uppercase text-cosmic-muted">
-                      RA (J2000)
-                    </div>
-                    <div className="font-mono text-sm font-semibold text-cosmic-text mt-0.5">
-                      {target.ra.toFixed(4)}°
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10">
-                    <div className="text-[10px] font-mono uppercase text-cosmic-muted">
-                      Dec (J2000)
-                    </div>
-                    <div className="font-mono text-sm font-semibold text-cosmic-text mt-0.5">
-                      {target.dec >= 0 ? "+" : ""}
-                      {target.dec.toFixed(4)}°
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10">
-                    <div className="text-[10px] font-mono uppercase text-cosmic-muted">
-                      Distance
-                    </div>
-                    <div className="font-mono text-sm font-semibold text-cosmic-text mt-0.5">
-                      {target.distanceLy !== null
-                        ? `${target.distanceLy} ly`
-                        : "Variable"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                <div className="flex flex-wrap gap-1.5">
-                  {target.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-white/[0.06] text-cosmic-muted border border-white/10"
-                    >
-                      <Sparkles className="w-3 h-3 text-pastel-lavender" />
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playSound("click");
-                      setRaInput(String(target.ra));
-                      setDecInput(String(target.dec));
-                    }}
-                    className="px-3.5 py-2 rounded-full text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] text-cosmic-muted hover:text-cosmic-text transition-colors"
-                  >
-                    Load Coords
-                  </button>
-                  <Link
-                    href={`/viewer?target=${target.id}&ra=${target.ra}&dec=${target.dec}`}
-                    onClick={() => playSound("whoosh")}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow"
-                  >
-                    <span>Open Blinker</span>
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* Column 2 (Bottom on Mobile, Right on Desktop): Search Panel & Recent Searches */}
+        <motion.div
+          initial={
+            prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 18 }
+          }
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.12 }}
+          className="lg:col-span-6 w-full"
+        >
+          <SearchPanel
+            targets={targets}
+            objectQuery={objectQuery}
+            onObjectQueryChange={handleObjectQueryChange}
+            raInput={raInput}
+            onRaInputChange={handleRaChange}
+            decInput={decInput}
+            onDecInputChange={handleDecChange}
+            fov={fov}
+            onFovChange={setFov}
+            band={band}
+            onBandChange={setBand}
+            selectedTarget={selectedTarget}
+            onSelectTarget={handleSelectTarget}
+            onSubmitSearch={navigateToViewer}
+            recentSearches={recentSearches}
+            onSelectRecent={handleSelectRecent}
+            onClearRecent={handleClearRecent}
+          />
+        </motion.div>
       </section>
     </PageTransition>
   );
 }
-

@@ -22,5 +22,23 @@
     }
   ],
   "pixelScaleArcsec": 6.2,
-  "source": "placeholder"
+  "source": "placeholder",
+  "mover": [
+    {
+      "x": 239,
+      "y": 271
+    },
+    {
+      "x": 240.8,
+      "y": 269.6
+    },
+    {
+      "x": 242.6,
+      "y": 268.2
+    },
+    {
+      "x": 244.4,
+      "y": 266.8
+    }
+  ]
 }

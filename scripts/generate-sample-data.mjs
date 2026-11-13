@@ -238,13 +238,18 @@ function generateTargetFrames(target) {
   const startY = 268 - ((seed >> 4) % 36);
   const isFast = target.tags.includes("fast");
   const isVariable = target.tags.includes("variable");
-  const dxStep = isFast ? 2.5 : 0.0;
-  const dyStep = isFast ? -1.9 : 0.0;
+  const dxStep = isFast ? 2.5 : 1.8;
+  const dyStep = isFast ? -1.9 : -1.4;
+  const moverCoords = [];
 
   for (let f = 0; f < 4; f++) {
     const frameBuf = Buffer.from(baseBuf);
     const objX = startX + f * dxStep;
     const objY = startY + f * dyStep;
+    moverCoords.push({
+      x: Number(objX.toFixed(1)),
+      y: Number(objY.toFixed(1)),
+    });
 
     const fluxPulse = isVariable ? [0.68, 1.32, 0.74, 1.48][f] : 1.28;
     const radius = isVariable ? 3.8 * Math.sqrt(fluxPulse) : 4.2;
@@ -258,6 +263,8 @@ function generateTargetFrames(target) {
     const fileName = `frame-0${f + 1}.png`;
     fs.writeFileSync(path.join(framesDir, fileName), png);
   }
+
+  return moverCoords;
 }
 
 function generateSpectrum(target) {
@@ -300,7 +307,7 @@ function generateSpectrum(target) {
   return points;
 }
 
-function generateMeta() {
+function generateMeta(mover) {
   return {
     frames: [
       { file: "frame-01.png", date: "2025-06-01", band: "all" },
@@ -310,6 +317,7 @@ function generateMeta() {
     ],
     pixelScaleArcsec: 6.2,
     source: "placeholder",
+    mover,
   };
 }
 
@@ -336,13 +344,12 @@ function main() {
     const targetDir = path.join(DATA_DIR, target.id);
     fs.mkdirSync(targetDir, { recursive: true });
 
-    const meta = generateMeta();
+    const moverCoords = generateTargetFrames(target);
+    const meta = generateMeta(moverCoords);
     fs.writeFileSync(path.join(targetDir, "meta.json"), JSON.stringify(meta, null, 2) + "\n");
 
     const spectrum = generateSpectrum(target);
     fs.writeFileSync(path.join(targetDir, "spectrum.json"), JSON.stringify(spectrum, null, 2) + "\n");
-
-    generateTargetFrames(target);
   }
 
   fs.mkdirSync(SOUNDS_DIR, { recursive: true });

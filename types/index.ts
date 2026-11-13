@@ -20,11 +20,17 @@ export interface FrameEntry {
   url?: string;
 }
 
+export interface MoverPoint {
+  x: number;
+  y: number;
+}
+
 export interface TargetMeta {
   frames: FrameEntry[];
   pixelScaleArcsec: number;
   source: "placeholder" | "irsa" | "live" | string;
   flags?: string[];
+  mover?: MoverPoint[];
 }
 
 export interface SpectrumPoint {

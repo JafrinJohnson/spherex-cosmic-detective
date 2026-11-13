@@ -78,6 +78,12 @@ const DEFAULT_META: TargetMeta = {
   ],
   pixelScaleArcsec: 6.2,
   source: "placeholder",
+  mover: [
+    { x: 248, y: 244 },
+    { x: 250.5, y: 242.1 },
+    { x: 253, y: 240.2 },
+    { x: 255.5, y: 238.3 },
+  ],
 };
 
 function getApiBase(): string {

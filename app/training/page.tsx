@@ -1,306 +1,758 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import confetti from "canvas-confetti";
 import {
   GraduationCap,
-  CheckCircle2,
-  Award,
-  ArrowRight,
-  HelpCircle,
-  Eye,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
   Sparkles,
+  Keyboard,
 } from "lucide-react";
+import { getTargets, getFrames } from "@/lib/api";
+import {
+  SpotTheMover,
+  type RoundOutcome,
+  type RealSkyBundle,
+} from "@/components/training/SpotTheMover";
+import {
+  QuizCard,
+  type QuizQuestionType,
+} from "@/components/training/QuizCard";
 import { PageTransition } from "@/components/PageTransition";
 import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
 
-interface TrainingDrill {
-  id: string;
-  title: string;
-  targetId: string;
-  targetName: string;
-  prompt: string;
-  clue: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
+const TRAINING_STORAGE_KEY = "cosmic-detective-training-progress-v1";
+
+export type BadgeId =
+  | "cadet"
+  | "observer"
+  | "planet-hunter"
+  | "sharp-eye"
+  | "quick-draw"
+  | "variable-spotter";
+
+interface BadgeDef {
+  id: BadgeId;
+  name: string;
+  requirement: string;
+  gradient: string;
 }
 
-const DRILLS: TrainingDrill[] = [
+const BADGE_DEFINITIONS: BadgeDef[] = [
   {
-    id: "drill-1",
-    title: "Module 01 · High Proper Motion vs. Static Field",
-    targetId: "barnards-star",
-    targetName: "Barnard's Star",
-    prompt:
-      "When blinking 4 SPHEREx epochs spaced 6 months apart, one bright infrared source shifts steadily diagonally across 45 pixels while surrounding stars remain fixed. How should you classify it?",
-    clue: "At 6.2 arcseconds per pixel, a steady linear shift over 1.5 years indicates large tangential velocity in the solar neighborhood.",
-    options: [
-      "High-Proper-Motion Nearby Star / Brown Dwarf",
-      "Distant Extragalactic Supernova",
-      "Static Background Giant",
-    ],
-    correctIndex: 0,
-    explanation:
-      "Correct! Barnard's Star moves at 10.3 arcseconds per year—the fastest proper motion of any star in our sky.",
+    id: "cadet",
+    name: "Cadet",
+    requirement: "Start training",
+    gradient: "from-[#A2D2FF] to-[#C3B1E1]",
   },
   {
-    id: "drill-2",
-    title: "Module 02 · Ultracool Brown Dwarf Spectral Troughs",
-    targetId: "wise-0855",
-    targetName: "WISE 0855−0714",
-    prompt:
-      "You spot a fast-moving source that is completely invisible in optical bands (0.75 μm) but surges in brightness near 4.5 μm with deep methane and water absorption valleys. What object have you found?",
-    clue: "Objects cooler than 300 K emit almost all of their radiation in the 4–5 μm atmospheric window.",
-    options: [
-      "Hot White Dwarf",
-      "Cold Y-Type Brown Dwarf (WISE 0855 class)",
-      "Main-Sequence G Star",
-    ],
-    correctIndex: 1,
-    explanation:
-      "Spot on! WISE 0855−0714 is the coldest known brown dwarf (~250 K), glowing prominently in SPHEREx's 4.5 μm channels.",
+    id: "observer",
+    name: "Observer",
+    requirement: "Reach 300 pts",
+    gradient: "from-[#B5EAD7] to-[#A2D2FF]",
   },
   {
-    id: "drill-3",
-    title: "Module 03 · Circumstellar Variable vs. Mover",
-    targetId: "rw-aurigae",
-    targetName: "RW Aurigae",
-    prompt:
-      "A source remains locked at the exact same pixel coordinates across all 4 epochs, but its infrared halo swells and dims by 40% between frames. What is this phenomenon?",
-    clue: "Zero proper motion shift combined with strong flux modulation points to intrinsic stellar or dust variability.",
-    options: [
-      "Fast-Moving Solar System Asteroid",
-      "Young Variable Star / Pulsating Giant",
-      "Hot Pixel Detector Artifact",
-    ],
-    correctIndex: 1,
-    explanation:
-      "Excellent! Variable stars like RW Aurigae and R Draconis stay fixed in position while their infrared flux rises and dips over months.",
+    id: "planet-hunter",
+    name: "Planet Hunter",
+    requirement: "Reach 1000 pts",
+    gradient: "from-[#FF8A65] to-[#FFD166]",
+  },
+  {
+    id: "sharp-eye",
+    name: "Sharp Eye",
+    requirement: "5 finds in a row, no miss",
+    gradient: "from-[#C3B1E1] to-[#FFC8DD]",
+  },
+  {
+    id: "quick-draw",
+    name: "Quick Draw",
+    requirement: "Find in under 3 s",
+    gradient: "from-[#FFD166] to-[#FFB5A7]",
+  },
+  {
+    id: "variable-spotter",
+    name: "Variable Spotter",
+    requirement: "Brightness quiz correct",
+    gradient: "from-[#FFC8DD] to-[#B5EAD7]",
   },
 ];
 
+function BadgeSvgIcon({ id }: { id: BadgeId }) {
+  switch (id) {
+    case "cadet":
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 3L14.8 8.6L21 9.5L16.5 13.9L17.6 20L12 17.1L6.4 20L7.5 13.9L3 9.5L9.2 8.6L12 3Z"
+            stroke="#0B0B1E"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "observer":
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" stroke="#0B0B1E" strokeWidth="2" />
+          <path
+            d="M2 12C4.5 7 8 4.5 12 4.5C16 4.5 19.5 7 22 12C19.5 17 16 19.5 12 19.5C8 19.5 4.5 17 2 12Z"
+            stroke="#0B0B1E"
+            strokeWidth="2"
+          />
+        </svg>
+      );
+    case "planet-hunter":
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="5.5" stroke="#0B0B1E" strokeWidth="2" />
+          <ellipse
+            cx="12"
+            cy="12"
+            rx="10"
+            ry="3.5"
+            transform="rotate(-22 12 12)"
+            stroke="#0B0B1E"
+            strokeWidth="1.8"
+          />
+        </svg>
+      );
+    case "sharp-eye":
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" stroke="#0B0B1E" strokeWidth="2" />
+          <circle cx="12" cy="12" r="2.5" fill="#0B0B1E" />
+          <path d="M12 2V5M12 19V22M2 12H5M19 12H22" stroke="#0B0B1E" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      );
+    case "quick-draw":
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M13 2L4 14H12L11 22L20 10H12L13 2Z"
+            stroke="#0B0B1E"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "variable-spotter":
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M2 12H5L8 5L12 19L16 8L19 12H22"
+            stroke="#0B0B1E"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+  }
+}
+
+function useAnimatedCount(targetValue: number, durationMs = 420): number {
+  const [displayValue, setDisplayValue] = useState<number>(targetValue);
+  const prevRef = useRef<number>(targetValue);
+
+  useEffect(() => {
+    const startVal = prevRef.current;
+    const diff = targetValue - startVal;
+    if (diff === 0) return;
+
+    const startTime = performance.now();
+    let rafId = 0;
+
+    const update = (now: number) => {
+      const p = Math.min(1, (now - startTime) / durationMs);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplayValue(Math.round(startVal + diff * eased));
+      if (p < 1) {
+        rafId = window.requestAnimationFrame(update);
+      } else {
+        prevRef.current = targetValue;
+      }
+    };
+
+    rafId = window.requestAnimationFrame(update);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [targetValue, durationMs]);
+
+  return displayValue;
+}
+
+interface StoredTrainingProgress {
+  score: number;
+  moversFound: number;
+  streak: number;
+  bestTimeSec: number | null;
+  unlockedBadges: BadgeId[];
+  roundNumber: number;
+}
+
 export default function TrainingPage() {
-  const [step, setStep] = useState<number>(0);
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
+  const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
 
-  const currentDrill = DRILLS[step];
-  const isCorrect = selectedOption === currentDrill.correctIndex;
-  const completedCount = Object.keys(completed).length;
+  // Persisted progress states
+  const [score, setScore] = useState<number>(0);
+  const [moversFound, setMoversFound] = useState<number>(0);
+  const [streak, setStreak] = useState<number>(0);
+  const [bestTimeSec, setBestTimeSec] = useState<number | null>(null);
+  const [unlockedBadges, setUnlockedBadges] = useState<BadgeId[]>(["cadet"]);
+  const [roundNumber, setRoundNumber] = useState<number>(1);
+  const [hydrated, setHydrated] = useState<boolean>(false);
 
-  const handleSelectOption = (idx: number) => {
-    setSelectedOption(idx);
-    if (idx === currentDrill.correctIndex) {
-      playSound("success");
-      setCompleted((prev) => ({ ...prev, [currentDrill.id]: true }));
-      try {
-        confetti({
-          particleCount: 45,
-          spread: 55,
-          origin: { y: 0.75 },
-        });
-      } catch {
-        // Ignore confetti errors
+  // Active round quiz & modal states
+  const [lastOutcome, setLastOutcome] = useState<RoundOutcome | null>(null);
+  const [newlyUnlockedBadge, setNewlyUnlockedBadge] =
+    useState<BadgeDef | null>(null);
+  const [howToPlayOpen, setHowToPlayOpen] = useState<boolean>(false);
+  const [resetModalOpen, setResetModalOpen] = useState<boolean>(false);
+  const [hintTriggerSeq, setHintTriggerSeq] = useState<number>(0);
+
+  // Real sky bundles loaded from getTargets() + getFrames()
+  const [realSkyBundles, setRealSkyBundles] = useState<RealSkyBundle[]>([]);
+
+  const animatedScore = useAnimatedCount(score);
+  const animatedFinds = useAnimatedCount(moversFound);
+
+  // Load saved progress from localStorage + load real sky frames
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TRAINING_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as StoredTrainingProgress;
+        if (typeof parsed.score === "number") setScore(parsed.score);
+        if (typeof parsed.moversFound === "number")
+          setMoversFound(parsed.moversFound);
+        if (typeof parsed.streak === "number") setStreak(parsed.streak);
+        if (
+          parsed.bestTimeSec === null ||
+          typeof parsed.bestTimeSec === "number"
+        ) {
+          setBestTimeSec(parsed.bestTimeSec);
+        }
+        if (Array.isArray(parsed.unlockedBadges) && parsed.unlockedBadges.length > 0) {
+          setUnlockedBadges(parsed.unlockedBadges);
+        }
+        if (typeof parsed.roundNumber === "number" && parsed.roundNumber >= 1) {
+          setRoundNumber(parsed.roundNumber);
+        }
       }
-    } else {
-      playSound("click");
+    } catch {
+      // Ignore storage access errors
+    }
+    setHydrated(true);
+
+    let active = true;
+    getTargets().then(async (targets) => {
+      if (!active) return;
+      const bundles = await Promise.all(
+        targets.map(async (target) => {
+          const meta = await getFrames(target.id);
+          return { target, meta };
+        })
+      );
+      if (active) setRealSkyBundles(bundles);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Save progress to localStorage whenever state updates
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const payload: StoredTrainingProgress = {
+        score,
+        moversFound,
+        streak,
+        bestTimeSec,
+        unlockedBadges,
+        roundNumber,
+      };
+      window.localStorage.setItem(
+        TRAINING_STORAGE_KEY,
+        JSON.stringify(payload)
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }, [
+    hydrated,
+    score,
+    moversFound,
+    streak,
+    bestTimeSec,
+    unlockedBadges,
+    roundNumber,
+  ]);
+
+  // Helper to check and unlock badges with celebration modal
+  const checkAndUnlockBadges = useCallback(
+    (params: {
+      nextScore: number;
+      nextStreak: number;
+      solveTimeSec?: number;
+      answeredBrightnessCorrectly?: boolean;
+    }) => {
+      setUnlockedBadges((prev) => {
+        const nextList = [...prev];
+        let freshlyUnlocked: BadgeDef | null = null;
+
+        const tryUnlock = (id: BadgeId) => {
+          if (!nextList.includes(id)) {
+            nextList.push(id);
+            const def = BADGE_DEFINITIONS.find((b) => b.id === id) ?? null;
+            if (def) freshlyUnlocked = def;
+          }
+        };
+
+        if (params.nextScore >= 300) tryUnlock("observer");
+        if (params.nextScore >= 1000) tryUnlock("planet-hunter");
+        if (params.nextStreak >= 5) tryUnlock("sharp-eye");
+        if (
+          params.solveTimeSec !== undefined &&
+          params.solveTimeSec < 3.0
+        ) {
+          tryUnlock("quick-draw");
+        }
+        if (params.answeredBrightnessCorrectly) {
+          tryUnlock("variable-spotter");
+        }
+
+        if (freshlyUnlocked) {
+          setNewlyUnlockedBadge(freshlyUnlocked);
+          playSound("success");
+          try {
+            confetti({
+              particleCount: 70,
+              spread: 75,
+              origin: { y: 0.55 },
+            });
+          } catch {
+            // Ignore confetti errors
+          }
+        }
+
+        return nextList;
+      });
+    },
+    [playSound]
+  );
+
+  const handleHit = useCallback(
+    (outcome: RoundOutcome) => {
+      const nextScore = score + outcome.pointsEarned;
+      const nextFinds = moversFound + 1;
+      const nextStreak = outcome.missedInRound ? 1 : streak + 1;
+      const nextBest =
+        bestTimeSec === null
+          ? outcome.elapsedSeconds
+          : Math.min(bestTimeSec, outcome.elapsedSeconds);
+
+      setScore(nextScore);
+      setMoversFound(nextFinds);
+      setStreak(nextStreak);
+      setBestTimeSec(nextBest);
+      setLastOutcome(outcome);
+
+      checkAndUnlockBadges({
+        nextScore,
+        nextStreak,
+        solveTimeSec: outcome.elapsedSeconds,
+      });
+    },
+    [score, moversFound, streak, bestTimeSec, checkAndUnlockBadges]
+  );
+
+  const handleMiss = useCallback(() => {
+    setScore((prev) => Math.max(0, prev - 10));
+    setStreak(0);
+  }, []);
+
+  const handleUseHint = useCallback(() => {
+    setScore((prev) => Math.max(0, prev - 30));
+  }, []);
+
+  const handleNextSky = useCallback(() => {
+    setRoundNumber((r) => r + 1);
+    setLastOutcome(null);
+  }, []);
+
+  const handleQuizCorrect = useCallback(
+    (questionType: QuizQuestionType) => {
+      const nextScore = score + 50;
+      setScore(nextScore);
+      checkAndUnlockBadges({
+        nextScore,
+        nextStreak: streak,
+        answeredBrightnessCorrectly: questionType === "brightness",
+      });
+    },
+    [score, streak, checkAndUnlockBadges]
+  );
+
+  const confirmResetProgress = () => {
+    playSound("click");
+    setScore(0);
+    setMoversFound(0);
+    setStreak(0);
+    setBestTimeSec(null);
+    setUnlockedBadges(["cadet"]);
+    setRoundNumber(1);
+    setLastOutcome(null);
+    setResetModalOpen(false);
+    try {
+      window.localStorage.removeItem(TRAINING_STORAGE_KEY);
+    } catch {
+      // Ignore
     }
   };
 
-  return (
-    <PageTransition className="space-y-12 pb-8">
-      {/* Header Section */}
-      <section className="glass p-8 sm:p-10 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider bg-pastel-mint/15 border border-pastel-mint/35 text-pastel-mint">
-            <GraduationCap className="w-4 h-4" />
-            Cadet Calibration Academy
-          </span>
-          <SampleDataBadge source="placeholder" />
-        </div>
+  // Global keyboard shortcuts: N = next sky, H = hint
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <h1 className="font-heading text-3xl sm:text-5xl font-bold text-gradient-headline">
-              Infrared Detective Training
-            </h1>
-            <p className="text-cosmic-muted text-base leading-relaxed">
-              Master the signatures of high-proper-motion brown dwarfs, runaway
-              red dwarfs, and pulsating infrared variables before vetting live
-              survey fields.
-            </p>
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        playSound("whoosh");
+        handleNextSky();
+      } else if (e.key === "h" || e.key === "H") {
+        e.preventDefault();
+        setHintTriggerSeq((s) => s + 1);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [playSound, handleNextSky]);
+
+  return (
+    <PageTransition className="max-w-[1200px] mx-auto space-y-8 pb-16">
+      {/* Top Header & Collapsible "How to play" + "Reset progress" */}
+      <section className="glass p-6 sm:p-8 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider bg-pastel-mint/15 border border-pastel-mint/35 text-pastel-mint">
+              <GraduationCap className="w-4 h-4" />
+              <span>Training Mode</span>
+            </span>
+            <SampleDataBadge source="placeholder" />
           </div>
 
-          <div className="glass px-5 py-4 rounded-2xl flex items-center gap-3 shrink-0">
-            <Award className="w-6 h-6 text-pastel-peach" />
-            <div>
-              <div className="text-xs font-mono uppercase text-cosmic-muted">
-                Calibration Progress
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                playSound("click");
+                setHowToPlayOpen((o) => !o);
+              }}
+              aria-expanded={howToPlayOpen}
+              className="min-h-[44px] px-4 py-2 rounded-full text-xs font-medium bg-white/[0.07] hover:bg-white/[0.14] border border-white/15 text-cosmic-text inline-flex items-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
+            >
+              <span>How to play</span>
+              {howToPlayOpen ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                playSound("click");
+                setResetModalOpen(true);
+              }}
+              aria-label="Reset training progress"
+              className="min-h-[44px] px-4 py-2 rounded-full text-xs font-medium bg-white/[0.05] hover:bg-pastel-peach/20 border border-white/15 hover:border-pastel-peach/50 text-cosmic-muted hover:text-pastel-peach inline-flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-peach"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset progress</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Collapsible "How to play" Tips */}
+        <AnimatePresence>
+          {howToPlayOpen && (
+            <motion.div
+              initial={
+                prefersReducedMotion ? { opacity: 1 } : { opacity: 0, height: 0 }
+              }
+              animate={{ opacity: 1, height: "auto" }}
+              exit={
+                prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }
+              }
+              className="overflow-hidden"
+            >
+              <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-cosmic-muted">
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
+                  <div className="font-heading font-semibold text-pastel-mint">
+                    1. Watch the Blink
+                  </div>
+                  <p>
+                    Photo A and Photo B flip every 650 ms. Background stars
+                    remain fixed while one nearby object jumps between visits.
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
+                  <div className="font-heading font-semibold text-pastel-peach">
+                    2. Watch Out for Decoys
+                  </div>
+                  <p>
+                    From Level 3 onward, a variable decoy star pulses in
+                    brightness without changing coordinates. Only tap the star
+                    that moves!
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
+                  <div className="font-heading font-semibold text-pastel-sky flex items-center gap-1.5">
+                    <Keyboard className="w-3.5 h-3.5" />
+                    <span>3. Keyboard Shortcuts</span>
+                  </div>
+                  <p>
+                    Press <code className="text-cosmic-text">N</code> for next
+                    sky, <code className="text-cosmic-text">H</code> for a hint
+                    (after 8 s), and{" "}
+                    <code className="text-cosmic-text">1 / 2 / 3</code> to
+                    answer the observation quiz.
+                  </p>
+                </div>
               </div>
-              <div className="font-heading text-lg font-bold text-cosmic-text">
-                {completedCount} / {DRILLS.length} Modules Verified
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* MAIN TWO-COLUMN LAYOUT (Desktop two columns, Mobile stacked) */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Wide Column (7 cols): Spot the Mover Game Card */}
+        <div className="lg:col-span-7 w-full">
+          <SpotTheMover
+            moversFound={moversFound}
+            roundNumber={roundNumber}
+            realSkyBundles={realSkyBundles}
+            onHit={handleHit}
+            onMiss={handleMiss}
+            onUseHint={handleUseHint}
+            onNextSky={handleNextSky}
+            hintTriggerSeq={hintTriggerSeq}
+          />
+        </div>
+
+        {/* Right Column (5 cols): Score Card + Quiz Card + Badges Card */}
+        <aside className="lg:col-span-5 w-full space-y-6">
+          {/* 2. SCORE CARD (Glass, 2-column grid) */}
+          <div className="glass p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/15">
+                <div className="text-xs font-mono uppercase tracking-wider text-cosmic-muted">
+                  Score
+                </div>
+                <div className="font-heading text-3xl sm:text-4xl font-bold text-[#FFD166] mt-1">
+                  {animatedScore}
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/15">
+                <div className="text-xs font-mono uppercase tracking-wider text-cosmic-muted">
+                  Movers found
+                </div>
+                <div className="font-heading text-3xl sm:text-4xl font-bold text-[#B5EAD7] mt-1">
+                  {animatedFinds}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-1">
+              <div className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
+                <span className="text-cosmic-muted">Streak</span>
+                <span className="font-mono font-bold text-pastel-lavender">
+                  {streak} in a row
+                </span>
+              </div>
+
+              <div className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
+                <span className="text-cosmic-muted">Best time</span>
+                <span className="font-mono font-bold text-pastel-sky">
+                  {bestTimeSec !== null ? `${bestTimeSec.toFixed(1)}s` : "—"}
+                </span>
               </div>
             </div>
           </div>
-        </div>
+
+          {/* 3. "WHAT DID YOU SEE?" QUIZ CARD */}
+          <QuizCard
+            lastOutcome={lastOutcome}
+            onAnswerCorrect={handleQuizCorrect}
+            onNextSky={handleNextSky}
+          />
+
+          {/* 4. BADGES CARD */}
+          <div className="glass p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono font-bold uppercase tracking-widest text-pastel-lavender">
+                YOUR BADGES
+              </span>
+              <span className="text-xs font-mono text-cosmic-muted">
+                {unlockedBadges.length} / {BADGE_DEFINITIONS.length} Unlocked
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+              {BADGE_DEFINITIONS.map((badge) => {
+                const isUnlocked = unlockedBadges.includes(badge.id);
+                return (
+                  <div
+                    key={badge.id}
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center text-center gap-2 transition-all ${
+                      isUnlocked
+                        ? "bg-white/[0.07] border-white/25 shadow-sm"
+                        : "bg-white/[0.02] border-dashed border-white/20 opacity-60"
+                    }`}
+                  >
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        isUnlocked
+                          ? `bg-gradient-to-br ${badge.gradient} shadow-md`
+                          : "border-2 border-dashed border-white/30 bg-white/5"
+                      }`}
+                    >
+                      <BadgeSvgIcon id={badge.id} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="font-heading text-xs font-bold text-cosmic-text">
+                        {badge.name}
+                      </div>
+                      <div className="text-[10px] text-cosmic-muted leading-tight">
+                        {badge.requirement}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
       </section>
 
-      {/* Interactive Drill Card */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-4 space-y-3">
-          {DRILLS.map((drill, idx) => {
-            const active = idx === step;
-            const done = Boolean(completed[drill.id]);
-            return (
+      {/* Centre-Screen Badge Unlock Glass Modal */}
+      <AnimatePresence>
+        {newlyUnlockedBadge && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-[#0B0B1E]/75 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setNewlyUnlockedBadge(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass max-w-md w-full p-8 text-center space-y-5 border border-[#FFD166]/60 shadow-[0_0_50px_rgba(255,209,102,0.3)]"
+            >
+              <div
+                className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center bg-gradient-to-br ${newlyUnlockedBadge.gradient} shadow-[0_0_32px_rgba(255,181,167,0.5)]`}
+              >
+                <BadgeSvgIcon id={newlyUnlockedBadge.id} />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-widest text-pastel-peach">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Achievement Unlocked</span>
+                </div>
+                <h3 className="font-heading text-2xl sm:text-3xl font-bold text-gradient-headline">
+                  New badge: {newlyUnlockedBadge.name}
+                </h3>
+                <p className="text-sm text-cosmic-muted">
+                  {newlyUnlockedBadge.requirement}
+                </p>
+              </div>
+
               <button
-                key={drill.id}
                 type="button"
                 onClick={() => {
                   playSound("click");
-                  setStep(idx);
-                  setSelectedOption(null);
+                  setNewlyUnlockedBadge(null);
                 }}
-                className={`w-full text-left p-5 rounded-3xl border transition-all flex items-start justify-between gap-3 ${
-                  active
-                    ? "glass border-pastel-lavender shadow-glass-glow"
-                    : "bg-white/[0.04] border-white/10 hover:bg-white/[0.07]"
-                }`}
+                className="min-h-[44px] px-8 py-3 rounded-full font-heading font-semibold text-xs uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow"
               >
-                <div className="space-y-1">
-                  <div className="text-xs font-mono uppercase text-pastel-lavender">
-                    Step 0{idx + 1}
-                  </div>
-                  <div className="font-heading font-semibold text-sm text-cosmic-text">
-                    {drill.title}
-                  </div>
-                  <div className="text-xs text-cosmic-muted">
-                    Reference: {drill.targetName}
-                  </div>
-                </div>
-                {done && (
-                  <CheckCircle2 className="w-5 h-5 text-pastel-mint shrink-0" />
-                )}
+                Continue Investigating
               </button>
-            );
-          })}
-        </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        <div className="lg:col-span-8 glass p-7 sm:p-9 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-mono uppercase tracking-wider text-pastel-sky">
-              {currentDrill.title}
-            </span>
-            <Link
-              href={`/viewer?target=${currentDrill.targetId}`}
-              onClick={() => playSound("whoosh")}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-pastel-peach hover:underline"
+      {/* Glass Confirm Modal for "Reset progress" */}
+      <AnimatePresence>
+        {resetModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-[#0B0B1E]/75 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setResetModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reset-dialog-title"
+              className="glass max-w-md w-full p-7 space-y-5 border border-white/25 shadow-glass-glow"
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Inspect {currentDrill.targetName} in Blinker</span>
-            </Link>
-          </div>
-
-          <h2 className="font-heading text-xl sm:text-2xl font-bold text-cosmic-text leading-snug">
-            {currentDrill.prompt}
-          </h2>
-
-          <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 flex items-start gap-3 text-xs text-cosmic-muted">
-            <HelpCircle className="w-4 h-4 text-pastel-lavender shrink-0 mt-0.5" />
-            <span>
-              <strong className="text-cosmic-text">Spectroscopic Hint:</strong>{" "}
-              {currentDrill.clue}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {currentDrill.options.map((option, idx) => {
-              const chosen = selectedOption === idx;
-              const right = idx === currentDrill.correctIndex;
-              let stateStyle =
-                "bg-white/[0.05] border-white/15 text-cosmic-text hover:bg-white/[0.1]";
-              if (chosen && right) {
-                stateStyle =
-                  "bg-pastel-mint/20 border-pastel-mint text-cosmic-text";
-              } else if (chosen && !right) {
-                stateStyle =
-                  "bg-pastel-peach/20 border-pastel-peach text-cosmic-text";
-              }
-
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => handleSelectOption(idx)}
-                  className={`w-full text-left p-4 rounded-2xl border font-medium text-sm transition-all flex items-center justify-between ${stateStyle}`}
+              <div className="space-y-2">
+                <h3
+                  id="reset-dialog-title"
+                  className="font-heading text-xl font-bold text-cosmic-text"
                 >
-                  <span>{option}</span>
-                  {chosen && (
-                    <span className="text-xs font-mono uppercase">
-                      {right ? "Verified" : "Try Again"}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedOption !== null && (
-            <div
-              className={`p-5 rounded-2xl border text-sm leading-relaxed ${
-                isCorrect
-                  ? "bg-pastel-mint/10 border-pastel-mint/40 text-cosmic-text"
-                  : "bg-pastel-peach/10 border-pastel-peach/40 text-cosmic-muted"
-              }`}
-            >
-              { isCorrect ? (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="font-heading font-semibold text-pastel-mint flex items-center gap-2">
-                      <Sparkles className="w-4 h-4" />
-                      <span>Calibration Confirmed</span>
-                    </div>
-                    <p>{currentDrill.explanation}</p>
-                  </div>
-
-                  {step < DRILLS.length - 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playSound("click");
-                        setStep((s) => s + 1);
-                        setSelectedOption(null);
-                      }}
-                      className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E]"
-                    >
-                      <span>Next Module</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  ) : (
-                    <Link
-                      href="/viewer?target=wise-0855"
-                      onClick={() => playSound("whoosh")}
-                      className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E]"
-                    >
-                      <span>Start Live Blinking</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  )}
-                </div>
-              ) : (
-                <p>
-                  Not quite—review the astrometric motion and infrared spectral
-                  clues above and select another classification.
+                  Reset Training Progress?
+                </h3>
+                <p className="text-sm text-cosmic-muted leading-relaxed">
+                  This will clear your current score ({score} pts), movers found
+                  ({moversFound}), streak, and unlocked badges back to Cadet
+                  level.
                 </p>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSound("click");
+                    setResetModalOpen(false);
+                  }}
+                  className="min-h-[44px] px-5 py-2.5 rounded-full text-xs font-medium bg-white/[0.08] hover:bg-white/[0.15] border border-white/15 text-cosmic-text"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmResetProgress}
+                  className="min-h-[44px] px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-pastel-peach text-[#0B0B1E]"
+                >
+                  Confirm Reset
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageTransition>
   );
 }
-

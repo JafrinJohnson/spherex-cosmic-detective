@@ -118,14 +118,14 @@ export default function HomePage() {
             heroViewMode === "orrery" ? "opacity-0" : "opacity-100"
           }`}
         >
-          <div className="max-w-2xl space-y-6 py-10">
+          <div className="max-w-2xl space-y-6 py-10 pt-[48px]">
             {user && !isGuest && (
               <p className="text-[15px] text-[#B5EAD7]">
                 Welcome back, {getFirstName(user.name)}
               </p>
             )}
 
-            <h1 className="font-heading font-bold text-[clamp(3rem,7vw,6.5rem)] leading-[1.04] tracking-[0.02em] text-cosmic-text">
+            <h1 className="font-heading font-bold text-[clamp(2.6rem,5vw,4.5rem)] leading-[1.06] tracking-[0.02em] text-cosmic-text">
               <span className="block">Become a</span>
               <span className="block text-gradient-infrared">
                 Cosmic Detective

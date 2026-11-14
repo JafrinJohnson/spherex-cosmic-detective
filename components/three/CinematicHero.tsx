@@ -67,7 +67,7 @@ const FLYBY_BODIES: FlyByBodyConfig[] = [
     name: "Saturn",
     subtitle: "Ringed Gas Giant",
     textureKey: "saturn",
-    cinematicSize: 0.56,
+    cinematicSize: 0.364,
     spinSpeed: 0.85,
     tiltDeg: 26.7,
     fallbackColor: "#dcc08e",
@@ -82,7 +82,7 @@ const FLYBY_BODIES: FlyByBodyConfig[] = [
     name: "Jupiter",
     subtitle: "Largest Planet",
     textureKey: "jupiter",
-    cinematicSize: 0.64,
+    cinematicSize: 0.416,
     spinSpeed: 1.0,
     tiltDeg: 3.1,
     fallbackColor: "#c89b6e",
@@ -97,7 +97,7 @@ const FLYBY_BODIES: FlyByBodyConfig[] = [
     name: "Mars",
     subtitle: "The Red Planet",
     textureKey: "mars",
-    cinematicSize: 0.35,
+    cinematicSize: 0.228,
     spinSpeed: 0.55,
     tiltDeg: 25.2,
     fallbackColor: "#c25b38",
@@ -112,7 +112,7 @@ const FLYBY_BODIES: FlyByBodyConfig[] = [
     name: "Venus",
     subtitle: "Cloud-Wrapped World",
     textureKey: "venus",
-    cinematicSize: 0.4,
+    cinematicSize: 0.26,
     spinSpeed: -0.18,
     tiltDeg: 177.4,
     fallbackColor: "#d9b37c",
@@ -127,7 +127,7 @@ const FLYBY_BODIES: FlyByBodyConfig[] = [
     name: "Neptune",
     subtitle: "Outer Ice Giant",
     textureKey: "neptune",
-    cinematicSize: 0.44,
+    cinematicSize: 0.286,
     spinSpeed: 0.72,
     tiltDeg: 28.3,
     fallbackColor: "#3b66c4",
@@ -142,7 +142,7 @@ const FLYBY_BODIES: FlyByBodyConfig[] = [
     name: "Uranus",
     subtitle: "Tilted Ice Giant",
     textureKey: "uranus",
-    cinematicSize: 0.45,
+    cinematicSize: 0.293,
     spinSpeed: -0.68,
     tiltDeg: 98.0,
     fallbackColor: "#7fc8d6",
@@ -157,7 +157,7 @@ const FLYBY_BODIES: FlyByBodyConfig[] = [
     name: "Mercury",
     subtitle: "Innermost Planet",
     textureKey: "mercury",
-    cinematicSize: 0.28,
+    cinematicSize: 0.182,
     spinSpeed: 0.24,
     tiltDeg: 0.03,
     fallbackColor: "#8c8680",
@@ -172,7 +172,7 @@ const FLYBY_BODIES: FlyByBodyConfig[] = [
     name: "The Moon",
     subtitle: "Earth's Natural Satellite",
     textureKey: "moon",
-    cinematicSize: 0.25,
+    cinematicSize: 0.163,
     spinSpeed: 0.3,
     tiltDeg: 6.7,
     fallbackColor: "#b5b2ac",
@@ -739,10 +739,10 @@ function HeroEarth({
                   float spec = pow(max(dot(normal, halfVec), 0.0), 28.0) * smoothstep(0.0, 0.35, ndotl);
                   float oceanMask = clamp((dayTex.b - dayTex.r * 0.75) * 2.2, 0.0, 1.0);
 
-                  vec3 dayCol = dayTex * (0.08 + 1.18 * pow(diffuse, 0.88)) + vec3(1.0, 0.92, 0.78) * spec * oceanMask * 0.38;
+                  vec3 dayCol = dayTex * (0.14 + 1.55 * pow(diffuse, 0.82)) + vec3(1.0, 0.94, 0.82) * spec * oceanMask * 0.45;
                   vec3 twilightTint = vec3(0.95, 0.48, 0.22) * exp(-pow(ndotl * 6.5, 2.0)) * 0.16;
                   vec3 nightCol = nightTex * (1.0 - smoothstep(-0.18, 0.12, ndotl)) * 1.65;
-                  vec3 nightSurface = dayTex * 0.035 * (1.0 - dayMix);
+                  vec3 nightSurface = dayTex * 0.045 * (1.0 - dayMix);
 
                   gl_FragColor = vec4(dayCol * dayMix + twilightTint + nightCol + nightSurface, 1.0);
                   #include <tonemapping_fragment>
@@ -1134,7 +1134,7 @@ function UnifiedCosmicScene({
   isMobile,
   isVisibleRef,
 }: UnifiedSceneProps) {
-  const { gl, camera } = useThree();
+  const { camera } = useThree();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -1154,7 +1154,7 @@ function UnifiedCosmicScene({
 
   const coronaTexture = useMemo(() => createCoronaTexture(), []);
   const saturnRingGeo = useMemo(
-    () => createSaturnRingGeometry(0.74, 1.42),
+    () => createSaturnRingGeometry(0.48, 0.92),
     []
   );
   const orrerySaturnRingGeo = useMemo(
@@ -1164,19 +1164,22 @@ function UnifiedCosmicScene({
 
   // Configure SRGB and anisotropy=8 on all textures
   useEffect(() => {
-    const maxAniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
     Object.values(textures).forEach((tex) => {
       if (!tex) return;
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = maxAniso;
+      tex.anisotropy = 8;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
       tex.needsUpdate = true;
     });
     if (highResEarthDay) {
       highResEarthDay.colorSpace = THREE.SRGBColorSpace;
-      highResEarthDay.anisotropy = maxAniso;
+      highResEarthDay.anisotropy = 8;
+      highResEarthDay.minFilter = THREE.LinearMipmapLinearFilter;
+      highResEarthDay.magFilter = THREE.LinearFilter;
       highResEarthDay.needsUpdate = true;
     }
-  }, [textures, highResEarthDay, gl]);
+  }, [textures, highResEarthDay]);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -1217,7 +1220,7 @@ function UnifiedCosmicScene({
   }, [viewMode]);
 
   const earthSunDir = useMemo(
-    () => new THREE.Vector3(-0.75, 0.5, -0.43).normalize(),
+    () => new THREE.Vector3(-0.62, 0.46, 0.63).normalize(),
     []
   );
   const orreryOrigin = useMemo(() => new THREE.Vector3(0, 0, 0), []);
@@ -1240,8 +1243,8 @@ function UnifiedCosmicScene({
       // Update each fly-by planet along the tilted elliptical path around Earth
       // Passes VERY CLOSE to the camera at theta = 0 (z = +8.85, distance ~2.55 from camera)
       // and goes BEHIND Earth around theta = PI (z = -11.4, occluded by Hero Earth)
-      const centerX = isMobile ? 0.35 : 1.15;
-      const centerY = isMobile ? -0.85 : -0.5;
+      const centerX = isMobile ? 0.9 : 2.1;
+      const centerY = isMobile ? -1.15 : -0.85;
       const centerZ = -1.35;
       const radiusX = isMobile ? 3.8 : 5.25;
       const radiusZ = 10.2;
@@ -1394,8 +1397,8 @@ function UnifiedCosmicScene({
           <pointLight
             position={[-10.5, 7.2, 11.0]}
             decay={0}
-            intensity={3.8}
-            color="#fff6e6"
+            intensity={5.5}
+            color="#fff8eb"
           />
         )}
 
@@ -1405,10 +1408,10 @@ function UnifiedCosmicScene({
           isVisibleRef={isVisibleRef}
         />
 
-        {/* Hero Earth: fills ~65% of viewport height, bottom-right on desktop, smaller & centred lower on mobile */}
+        {/* Hero Earth: 35% smaller and moved further right/down so it never goes behind headline text */}
         <HeroEarth
-          radius={isMobile ? 2.15 : 3.25}
-          position={isMobile ? [0.35, -2.55, 0] : [3.25, -1.75, 0]}
+          radius={isMobile ? 1.4 : 2.11}
+          position={isMobile ? [1.25, -2.85, 0] : [4.35, -2.35, 0]}
           dayMap={earthDayTexture}
           nightMap={textures.earthNight}
           cloudsMap={textures.earthClouds}
@@ -1736,9 +1739,9 @@ function UnifiedCosmicScene({
       ) : (
         <EffectComposer multisampling={0}>
           <DepthOfField
-            focusDistance={0.025}
-            focalLength={0.035}
-            bokehScale={1.6}
+            focusDistance={0.048}
+            focalLength={0.025}
+            bokehScale={0.55}
           />
           <Bloom luminanceThreshold={0.85} mipmapBlur intensity={1.15} />
           <Vignette eskil={false} offset={0.18} darkness={0.58} />
@@ -1758,9 +1761,9 @@ function StaticHeroPlaceholder() {
   return (
     <group>
       <ambientLight intensity={0.08} />
-      <pointLight position={[-10.5, 7.2, 11.0]} decay={0} intensity={3.8} />
-      <mesh position={[3.25, -1.75, 0]}>
-        <sphereGeometry args={[3.2, 32, 32]} />
+      <pointLight position={[-10.5, 7.2, 11.0]} decay={0} intensity={5.5} />
+      <mesh position={[4.35, -2.35, 0]}>
+        <sphereGeometry args={[2.11, 32, 32]} />
         <meshStandardMaterial color="#1f4e7a" roughness={0.9} />
       </mesh>
     </group>
@@ -1880,11 +1883,11 @@ export default function CinematicHero({
           antialias: true,
           powerPreference: "high-performance",
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.25,
+          toneMappingExposure: 1.3,
         }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.25;
+          gl.toneMappingExposure = 1.3;
 
           const canvas = gl.domElement;
           const handleContextLost = (event: Event) => {

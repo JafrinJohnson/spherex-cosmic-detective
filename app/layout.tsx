@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import { SoundProvider } from "@/components/SoundProvider";
+import { AuthProvider } from "@/context/AuthProvider";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
@@ -73,15 +74,17 @@ export default function RootLayout({
         <div className="starfield-layer" aria-hidden="true" />
 
         <SoundProvider>
-          <Navbar />
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8 focus:outline-none"
-          >
-            {children}
-          </main>
-          <Footer />
+          <AuthProvider>
+            <Navbar />
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8 focus:outline-none"
+            >
+              {children}
+            </main>
+            <Footer />
+          </AuthProvider>
         </SoundProvider>
       </body>
     </html>

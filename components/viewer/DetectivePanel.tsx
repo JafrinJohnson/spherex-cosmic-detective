@@ -10,6 +10,9 @@ import {
   ArrowUpRight,
   Database,
   XCircle,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb,
 } from "lucide-react";
 import { checkKnown } from "@/lib/api";
 import { addCandidate } from "@/lib/candidates";
@@ -17,6 +20,7 @@ import { formatRA, formatDec } from "@/lib/coords";
 import type { MotionAnalysisResult } from "@/lib/motion";
 import type { KnownObjectCheckResult } from "@/types";
 import { useSound } from "@/components/SoundProvider";
+import { useAuth } from "@/context/AuthProvider";
 
 interface DetectivePanelProps {
   investigation: MotionAnalysisResult | null;
@@ -56,7 +60,9 @@ export function DetectivePanel({
 }: DetectivePanelProps) {
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
+  const { user, isGuest } = useAuth();
 
+  const [tipsExpanded, setTipsExpanded] = useState<boolean>(false);
   const [knownResult, setKnownResult] = useState<KnownObjectCheckResult>({
     status: "offline",
     name: null,
@@ -64,6 +70,13 @@ export function DetectivePanel({
   const [checkingKnown, setCheckingKnown] = useState<boolean>(false);
   const [note, setNote] = useState<string>("");
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
+
+  // Explorer role starts with Detective panel tips expanded
+  useEffect(() => {
+    if (user && !isGuest && user.role === "explorer") {
+      setTipsExpanded(true);
+    }
+  }, [user, isGuest]);
 
   useEffect(() => {
     setSavedSuccess(false);
@@ -127,21 +140,74 @@ export function DetectivePanel({
           <span>Detective Panel</span>
         </h2>
 
-        {investigation && (
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => {
               playSound("click");
-              onClearSelection();
+              setTipsExpanded((v) => !v);
             }}
-            aria-label="Clear selected object"
-            className="min-h-[44px] px-3 py-1.5 rounded-full text-xs font-medium bg-white/[0.06] hover:bg-white/[0.14] border border-white/15 text-cosmic-muted hover:text-cosmic-text inline-flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
+            aria-expanded={tipsExpanded}
+            className="min-h-[38px] px-3 py-1.5 rounded-full text-xs font-medium bg-[#A2D2FF]/12 hover:bg-[#A2D2FF]/20 border border-[#A2D2FF]/35 text-[#A2D2FF] inline-flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-sky"
           >
-            <XCircle className="w-3.5 h-3.5" />
-            <span>Clear selection</span>
+            <Lightbulb className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Tips</span>
+            {tipsExpanded ? (
+              <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+            )}
           </button>
-        )}
+
+          {investigation && (
+            <button
+              type="button"
+              onClick={() => {
+                playSound("click");
+                onClearSelection();
+              }}
+              aria-label="Clear selected object"
+              className="min-h-[38px] px-3 py-1.5 rounded-full text-xs font-medium bg-white/[0.06] hover:bg-white/[0.14] border border-white/15 text-cosmic-muted hover:text-cosmic-text inline-flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Clear selection</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Collapsible Detective Tips (starts expanded for Explorer role) */}
+      <AnimatePresence>
+        {tipsExpanded && (
+          <motion.div
+            initial={
+              prefersReducedMotion ? { opacity: 1 } : { opacity: 0, height: 0 }
+            }
+            animate={{ opacity: 1, height: "auto" }}
+            exit={
+              prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }
+            }
+            className="overflow-hidden"
+          >
+            <div className="rounded-2xl border border-[#A2D2FF]/30 bg-[#A2D2FF]/[0.07] p-4 text-xs text-[#EDEBFF] space-y-1.5">
+              <p className="font-heading font-semibold text-[#A2D2FF]">
+                Explorer Field Tips
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-[#CFCBEA]">
+                <li>
+                  Toggle <span className="text-[#EDEBFF] font-medium">Difference</span> mode to highlight moving pairs as bright/dark dipoles.
+                </li>
+                <li>
+                  Objects moving more than <span className="text-[#FFB5A7] font-mono">1.0 px</span> across visits are classified as <span className="text-[#FFB5A7] font-semibold">Movers</span>.
+                </li>
+                <li>
+                  Switch infrared bands (<span className="text-[#FFD166] font-mono">3.4 μm</span> vs <span className="text-[#FFD166] font-mono">4.6 μm</span>) to spot cool brown dwarfs that glow brightest in longer wavelengths.
+                </li>
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence mode="wait">
         {/* EMPTY STATE */}

@@ -27,8 +27,11 @@ import {
 import { PageTransition } from "@/components/PageTransition";
 import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
+import { useAuth } from "@/context/AuthProvider";
+import { getTrainingStorageKey } from "@/lib/auth";
+import { ClassroomCard } from "@/components/auth/ClassroomCard";
 
-const TRAINING_STORAGE_KEY = "cosmic-detective-training-progress-v1";
+const LEGACY_TRAINING_STORAGE_KEY = "cosmic-detective-training-progress-v1";
 const TRAINING_TAB_STORAGE_KEY = "cosmic-detective-training-tab-v1";
 
 export type TrainingGameTab = "spot" | "compare";
@@ -240,6 +243,8 @@ interface StoredTrainingProgress {
 export default function TrainingPage() {
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
+  const { user, hydrated: authHydrated } = useAuth();
+  const storageKey = getTrainingStorageKey(user);
 
   // Active Game Tab ("spot" | "compare"), persisted in localStorage
   const [activeTab, setActiveTab] = useState<TrainingGameTab>("spot");
@@ -270,45 +275,69 @@ export default function TrainingPage() {
   const animatedScore = useAnimatedCount(score);
   const animatedFinds = useAnimatedCount(moversFound);
 
-  // Load saved progress & tab from localStorage + load real sky frames
+  // Load saved progress for current user key & tab from localStorage
   useEffect(() => {
+    if (!authHydrated) return;
+    setHydrated(false);
     try {
       const savedTab = window.localStorage.getItem(TRAINING_TAB_STORAGE_KEY);
       if (savedTab === "spot" || savedTab === "compare") {
         setActiveTab(savedTab);
       }
 
-      const raw = window.localStorage.getItem(TRAINING_STORAGE_KEY);
+      let raw = window.localStorage.getItem(storageKey);
+      if (!raw && storageKey === "progress:guest") {
+        raw = window.localStorage.getItem(LEGACY_TRAINING_STORAGE_KEY);
+        if (raw) {
+          window.localStorage.setItem("progress:guest", raw);
+        }
+      }
+
       if (raw) {
         const parsed = JSON.parse(raw) as StoredTrainingProgress;
-        if (typeof parsed.score === "number") setScore(parsed.score);
-        if (typeof parsed.moversFound === "number")
-          setMoversFound(parsed.moversFound);
-        if (typeof parsed.compareRoundsCompleted === "number") {
-          setCompareRoundsCompleted(parsed.compareRoundsCompleted);
-        }
-        if (typeof parsed.streak === "number") setStreak(parsed.streak);
-        if (
-          parsed.bestTimeSec === null ||
-          typeof parsed.bestTimeSec === "number"
-        ) {
-          setBestTimeSec(parsed.bestTimeSec);
-        }
-        if (
+        setScore(typeof parsed.score === "number" ? parsed.score : 0);
+        setMoversFound(
+          typeof parsed.moversFound === "number" ? parsed.moversFound : 0
+        );
+        setCompareRoundsCompleted(
+          typeof parsed.compareRoundsCompleted === "number"
+            ? parsed.compareRoundsCompleted
+            : 0
+        );
+        setStreak(typeof parsed.streak === "number" ? parsed.streak : 0);
+        setBestTimeSec(
+          parsed.bestTimeSec === null || typeof parsed.bestTimeSec === "number"
+            ? parsed.bestTimeSec
+            : null
+        );
+        setUnlockedBadges(
           Array.isArray(parsed.unlockedBadges) &&
-          parsed.unlockedBadges.length > 0
-        ) {
-          setUnlockedBadges(parsed.unlockedBadges);
-        }
-        if (typeof parsed.roundNumber === "number" && parsed.roundNumber >= 1) {
-          setRoundNumber(parsed.roundNumber);
-        }
+            parsed.unlockedBadges.length > 0
+            ? parsed.unlockedBadges
+            : ["cadet"]
+        );
+        setRoundNumber(
+          typeof parsed.roundNumber === "number" && parsed.roundNumber >= 1
+            ? parsed.roundNumber
+            : 1
+        );
+      } else {
+        setScore(0);
+        setMoversFound(0);
+        setCompareRoundsCompleted(0);
+        setStreak(0);
+        setBestTimeSec(null);
+        setUnlockedBadges(["cadet"]);
+        setRoundNumber(1);
       }
     } catch {
       // Ignore storage access errors
     }
     setHydrated(true);
+  }, [authHydrated, storageKey]);
 
+  // Load real sky frames once on mount
+  useEffect(() => {
     let active = true;
     getTargets().then(async (targets) => {
       if (!active) return;
@@ -328,7 +357,7 @@ export default function TrainingPage() {
 
   // Save progress to localStorage whenever state updates
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !authHydrated) return;
     try {
       const payload: StoredTrainingProgress = {
         score,
@@ -339,15 +368,14 @@ export default function TrainingPage() {
         unlockedBadges,
         roundNumber,
       };
-      window.localStorage.setItem(
-        TRAINING_STORAGE_KEY,
-        JSON.stringify(payload)
-      );
+      window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch {
       // Ignore storage errors
     }
   }, [
     hydrated,
+    authHydrated,
+    storageKey,
     score,
     moversFound,
     compareRoundsCompleted,
@@ -550,7 +578,7 @@ export default function TrainingPage() {
     setLastOutcome(null);
     setResetModalOpen(false);
     try {
-      window.localStorage.removeItem(TRAINING_STORAGE_KEY);
+      window.localStorage.removeItem(storageKey);
     } catch {
       // Ignore
     }
@@ -720,6 +748,40 @@ export default function TrainingPage() {
           )}
         </AnimatePresence>
       </section>
+
+      {/* Role-Based Experience Banner: Student Daily Goal OR Educator Classroom Card */}
+      {user?.role === "student" && (
+        <section
+          aria-label="Student daily goal"
+          className="glass rounded-3xl border border-[#B5EAD7]/40 bg-gradient-to-r from-[#B5EAD7]/[0.1] via-white/[0.04] to-[#A2D2FF]/[0.08] p-5 sm:p-6"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="font-heading text-base sm:text-lg font-bold text-[#EDEBFF]">
+                Your goal today: find 3 movers
+              </p>
+              <p className="text-xs text-[#CFCBEA]">
+                {moversFound >= 3
+                  ? "Goal complete! Keep spotting movers to climb the leaderboard."
+                  : `${Math.min(3, moversFound)} of 3 movers spotted so far.`}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#B5EAD7]/45 bg-[#B5EAD7]/15 px-3.5 py-1 text-xs font-mono font-bold text-[#B5EAD7]">
+              {Math.min(3, moversFound)} / 3
+            </span>
+          </div>
+          <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#B5EAD7] to-[#A2D2FF] transition-all duration-300"
+              style={{
+                width: `${Math.min(100, Math.round((Math.min(3, moversFound) / 3) * 100))}%`,
+              }}
+            />
+          </div>
+        </section>
+      )}
+
+      {user?.role === "educator" && <ClassroomCard />}
 
       {/* MAIN TWO-COLUMN LAYOUT (Desktop two columns, Mobile stacked) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

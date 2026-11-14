@@ -19,6 +19,8 @@ import type { Target, TargetMeta } from "@/types";
 import { PageTransition } from "@/components/PageTransition";
 import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
+import { useAuth } from "@/context/AuthProvider";
+import { getFirstName } from "@/lib/auth";
 
 const HeroScene = dynamic(() => import("@/components/three/HeroScene"), {
   ssr: false,
@@ -87,6 +89,7 @@ export default function HomePage() {
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
+  const { user, isGuest } = useAuth();
 
   useEffect(() => {
     let active = true;
@@ -119,6 +122,13 @@ export default function HomePage() {
               <SampleDataBadge source={meta?.source ?? "placeholder"} />
             </div>
 
+            {user && !isGuest && (
+              <p className="inline-flex items-center gap-2 rounded-full border border-[#B5EAD7]/40 bg-[#B5EAD7]/12 px-4 py-1.5 font-heading text-xs sm:text-sm font-semibold text-[#B5EAD7]">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>Welcome back, {getFirstName(user.name)}</span>
+              </p>
+            )}
+
             <h1 className="font-heading font-bold text-[44px] sm:text-[58px] lg:text-[72px] leading-[1.04] tracking-tight text-cosmic-text">
               <span className="block">Become a</span>
               <span className="block text-gradient-infrared">
@@ -139,7 +149,11 @@ export default function HomePage() {
                 onClick={() => playSound("whoosh")}
                 className="inline-flex items-center gap-2.5 px-7 py-4 rounded-full font-heading font-semibold text-sm sm:text-base tracking-wide bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-all"
               >
-                <span>Start Investigating</span>
+                <span>
+                  {user && !isGuest && user.role === "explorer"
+                    ? "Open Explorer"
+                    : "Start Investigating"}
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 

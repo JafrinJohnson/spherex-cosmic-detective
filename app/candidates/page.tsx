@@ -23,6 +23,8 @@ import {
 import { formatRA, formatDec } from "@/lib/coords";
 import { PageTransition } from "@/components/PageTransition";
 import { useSound } from "@/components/SoundProvider";
+import { useAuth } from "@/context/AuthProvider";
+import { ClassroomCard } from "@/components/auth/ClassroomCard";
 
 type FilterOption = "All" | "Movers" | "Changing brightness" | "Still";
 type SortOption = "newest" | "motion";
@@ -181,6 +183,7 @@ export default function CandidatesPage() {
 
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
+  const { user } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -299,6 +302,9 @@ export default function CandidatesPage() {
           </p>
         </div>
       </header>
+
+      {/* Educator Role Classroom Card */}
+      {user?.role === "educator" && <ClassroomCard />}
 
       {/* Top Toolbar */}
       <section

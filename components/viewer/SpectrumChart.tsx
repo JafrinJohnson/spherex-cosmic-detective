@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Volume2, Square } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -14,6 +15,7 @@ import {
 } from "recharts";
 import { getSpectrum } from "@/lib/api";
 import type { SpectrumPoint } from "@/types";
+import { useSound } from "@/components/SoundProvider";
 
 interface SpectrumChartProps {
   targetId: string;
@@ -61,6 +63,10 @@ export function SpectrumChart({
   targetId,
 }: SpectrumChartProps) {
   const [rawPoints, setRawPoints] = useState<SpectrumPoint[]>([]);
+  const [isPlayingSound, setIsPlayingSound] = useState<boolean>(false);
+  const [playheadWavelength, setPlayheadWavelength] = useState<number | null>(null);
+  const stopSoundRef = useRef<(() => void) | null>(null);
+  const { playSpectrum, playSound } = useSound();
 
   useEffect(() => {
     let active = true;
@@ -69,6 +75,7 @@ export function SpectrumChart({
     });
     return () => {
       active = false;
+      stopSoundRef.current?.();
     };
   }, [targetId]);
 
@@ -82,16 +89,71 @@ export function SpectrumChart({
     }));
   }, [rawPoints]);
 
+  const handleToggleSound = () => {
+    if (isPlayingSound) {
+      playSound("click");
+      stopSoundRef.current?.();
+      stopSoundRef.current = null;
+      setIsPlayingSound(false);
+      setPlayheadWavelength(null);
+      return;
+    }
+
+    if (rawPoints.length === 0) return;
+    playSound("click");
+    setIsPlayingSound(true);
+
+    const cancel = playSpectrum(rawPoints, (progress) => {
+      if (progress >= 1) {
+        setIsPlayingSound(false);
+        setPlayheadWavelength(null);
+        stopSoundRef.current = null;
+      } else {
+        // Wavelength 0.75 - 5.0 µm
+        const wl = 0.75 + progress * (5.0 - 0.75);
+        setPlayheadWavelength(wl);
+      }
+    });
+
+    stopSoundRef.current = cancel;
+  };
+
   return (
     <div className="glass p-6 sm:p-8 space-y-5">
       {/* Header Row */}
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="font-heading text-xl sm:text-2xl font-medium text-cosmic-text">
-          Spectrum
-        </h2>
-        <span className="text-xs font-mono text-cosmic-muted">
-          102 channels · 0.75 to 5.0 µm
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-heading text-xl sm:text-2xl font-medium text-cosmic-text">
+            Spectrum
+          </h2>
+          <span className="text-xs font-mono text-cosmic-muted">
+            102 channels · 0.75 to 5.0 µm
+          </span>
+        </div>
+
+        {/* Play its sound button */}
+        <button
+          type="button"
+          onClick={handleToggleSound}
+          disabled={rawPoints.length === 0}
+          className={`min-h-[44px] px-4 py-2 rounded-full text-xs font-semibold inline-flex items-center gap-2 border transition-all focus:outline-none focus:ring-2 focus:ring-pastel-mint ${
+            isPlayingSound
+              ? "bg-pastel-mint/30 border-pastel-mint text-cosmic-text shadow-sm"
+              : "bg-white/[0.07] hover:bg-white/[0.14] border-white/15 text-cosmic-text"
+          }`}
+        >
+          {isPlayingSound ? (
+            <>
+              <Square className="w-3.5 h-3.5 text-pastel-peach" />
+              <span>Stop sound</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-4 h-4 text-pastel-mint" />
+              <span>Play its sound</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Band Legend Strip (B1–B6) */}
@@ -194,6 +256,22 @@ export function SpectrumChart({
                 }}
               />
             ))}
+
+            {/* Moving synchronous playhead line when sound is playing */}
+            {playheadWavelength !== null && (
+              <ReferenceLine
+                x={playheadWavelength}
+                stroke="#FFD166"
+                strokeWidth={2.5}
+                label={{
+                  value: `${playheadWavelength.toFixed(2)} µm`,
+                  position: "top",
+                  fill: "#FFD166",
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}
+              />
+            )}
 
             <Area
               type="monotone"

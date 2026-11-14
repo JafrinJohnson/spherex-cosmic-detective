@@ -19,6 +19,10 @@ import {
   removeCandidate,
   CANDIDATES_UPDATED_EVENT,
 } from "@/lib/candidates";
+import {
+  EXAMPLE_CANDIDATES,
+  type ExtendedCandidateRecord,
+} from "@/lib/exampleCandidates";
 import { formatRA, formatDec } from "@/lib/coords";
 import { PageTransition } from "@/components/PageTransition";
 import { useSound } from "@/components/SoundProvider";
@@ -173,12 +177,13 @@ function TelescopeIllustration() {
 
 export default function CandidatesPage() {
   const [candidates, setCandidates] = useState<CandidateRecord[]>([]);
+  const [showExamples, setShowExamples] = useState<boolean>(true);
   const [mounted, setMounted] = useState(false);
   const [filterOption, setFilterOption] = useState<FilterOption>("All");
   const [sortOption, setSortOption] = useState<SortOption>("newest");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [candidateToDelete, setCandidateToDelete] =
-    useState<CandidateRecord | null>(null);
+    useState<ExtendedCandidateRecord | null>(null);
 
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
@@ -196,8 +201,17 @@ export default function CandidatesPage() {
     };
   }, []);
 
+  const allDisplayCandidates = useMemo<ExtendedCandidateRecord[]>(() => {
+    const userRecords: ExtendedCandidateRecord[] = candidates.map((c) => ({
+      ...c,
+      isExample: false,
+    }));
+    if (!showExamples) return userRecords;
+    return [...userRecords, ...EXAMPLE_CANDIDATES];
+  }, [candidates, showExamples]);
+
   const filteredAndSorted = useMemo(() => {
-    const filtered = candidates.filter((item) => {
+    const filtered = allDisplayCandidates.filter((item) => {
       if (filterOption === "All") return true;
       if (filterOption === "Movers") return item.verdict === "Mover";
       if (filterOption === "Changing brightness") {
@@ -208,6 +222,10 @@ export default function CandidatesPage() {
     });
 
     return [...filtered].sort((a, b) => {
+      // User-marked candidates appear first
+      if (a.isExample && !b.isExample) return 1;
+      if (!a.isExample && b.isExample) return -1;
+
       if (sortOption === "motion") {
         return (b.displacementArcsec || 0) - (a.displacementArcsec || 0);
       }
@@ -215,7 +233,7 @@ export default function CandidatesPage() {
       const timeB = new Date(b.createdAt).getTime() || 0;
       return timeB - timeA;
     });
-  }, [candidates, filterOption, sortOption]);
+  }, [allDisplayCandidates, filterOption, sortOption]);
 
   const getViewerHref = (item: CandidateRecord) => {
     const params = new URLSearchParams();
@@ -281,13 +299,29 @@ export default function CandidatesPage() {
             Candidates Board
           </h1>
 
-          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono bg-white/[0.08] border border-white/15 text-cosmic-text">
-            <Sparkles className="w-3.5 h-3.5 text-pastel-lavender" />
-            <span>
-              {candidates.length}{" "}
-              {candidates.length === 1 ? "candidate" : "candidates"}
+          <div className="flex items-center gap-3">
+            {/* Show examples toggle */}
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-cosmic-muted hover:text-cosmic-text px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 transition-colors">
+              <input
+                type="checkbox"
+                checked={showExamples}
+                onChange={(e) => {
+                  playSound("click");
+                  setShowExamples(e.target.checked);
+                }}
+                className="w-3.5 h-3.5 rounded accent-[#A2D2FF] cursor-pointer"
+              />
+              <span>Show examples</span>
+            </label>
+
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono bg-white/[0.08] border border-white/15 text-cosmic-text">
+              <Sparkles className="w-3.5 h-3.5 text-pastel-lavender" />
+              <span>
+                {filteredAndSorted.length}{" "}
+                {filteredAndSorted.length === 1 ? "candidate" : "candidates"}
+              </span>
             </span>
-          </span>
+          </div>
         </div>
 
         <p className="text-cosmic-muted text-base sm:text-lg max-w-2xl">
@@ -467,15 +501,23 @@ export default function CandidatesPage() {
                 <div className="space-y-4">
                   {/* Top Row: Verdict Badge + Relative Time */}
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${theme.badgeClass}`}
-                    >
+                    <div className="flex items-center gap-2">
                       <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: theme.color }}
-                      />
-                      <span>{item.verdict}</span>
-                    </span>
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${theme.badgeClass}`}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: theme.color }}
+                        />
+                        <span>{item.verdict}</span>
+                      </span>
+
+                      {item.isExample && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-pastel-lavender/20 border border-pastel-lavender/40 text-pastel-lavender">
+                          Example
+                        </span>
+                      )}
+                    </div>
 
                     <span className="text-xs font-mono text-cosmic-muted">
                       {formatRelativeTime(item.createdAt)}
@@ -621,18 +663,20 @@ export default function CandidatesPage() {
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playSound("click");
-                      setCandidateToDelete(item);
-                    }}
-                    aria-label={`Remove ${displayTarget} from candidates`}
-                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium bg-white/[0.06] hover:bg-pastel-peach/20 text-cosmic-muted hover:text-pastel-peach border border-white/15 hover:border-pastel-peach/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-peach"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span className="sr-only sm:not-sr-only">Remove</span>
-                  </button>
+                  {!item.isExample && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playSound("click");
+                        setCandidateToDelete(item);
+                      }}
+                      aria-label={`Remove ${displayTarget} from candidates`}
+                      className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium bg-white/[0.06] hover:bg-pastel-peach/20 text-cosmic-muted hover:text-pastel-peach border border-white/15 hover:border-pastel-peach/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-peach"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span className="sr-only sm:not-sr-only">Remove</span>
+                    </button>
+                  )}
                 </div>
               </motion.article>
             );

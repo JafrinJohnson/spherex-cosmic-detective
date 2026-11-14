@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Stars, Html, Line } from "@react-three/drei";
+import { OrbitControls, Stars, Billboard, Text, Line } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Orbit, Compass } from "lucide-react";
@@ -17,6 +17,7 @@ export interface SkyGlobeProps {
   crosshairCoords?: { ra: number; dec: number } | null;
   focusRequest?: { ra: number; dec: number; seq: number } | null;
   onSelectTarget: (target: Target) => void;
+  isNavigating?: boolean;
 }
 
 function buildMeridianPoints(raDeg: number, radius: number, segments = 72) {
@@ -201,30 +202,20 @@ function TargetMarker({
         />
       </mesh>
 
-      {/* Hover or Selected Label via drei <Html> */}
-      {(hovered || isSelected) && (
-        <Html
-          distanceFactor={6}
-          position={[0, 0.14, 0]}
-          center
-          zIndexRange={[20, 0]}
+      {/* 3D Label via drei <Billboard> + <Text> (WebGL rendered, zero React DOM root) */}
+      <Billboard position={[0, 0.14, 0]}>
+        <Text
+          visible={hovered || isSelected}
+          fontSize={0.06}
+          color="#F1EEFF"
+          outlineWidth={0.004}
+          outlineColor="#1B1846"
+          anchorX="center"
+          anchorY="bottom"
         >
-          <div className="pointer-events-none px-3 py-1.5 rounded-2xl bg-[#0B0B1E]/90 backdrop-blur-xl border border-white/25 shadow-glass-glow text-left whitespace-nowrap">
-            <div className="flex items-center gap-1.5">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: primaryColor }}
-              />
-              <span className="font-heading text-xs font-bold text-cosmic-text">
-                {target.name}
-              </span>
-            </div>
-            <div className="text-[10px] text-pastel-peach font-medium">
-              {target.nickname}
-            </div>
-          </div>
-        </Html>
-      )}
+          {target.name}
+        </Text>
+      </Billboard>
     </group>
   );
 }
@@ -376,6 +367,7 @@ export default function SkyGlobe({
   crosshairCoords,
   focusRequest,
   onSelectTarget,
+  isNavigating = false,
 }: SkyGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -488,7 +480,7 @@ export default function SkyGlobe({
             maxDistance={5}
             enableDamping
             dampingFactor={0.06}
-            autoRotate={!reducedMotion && !isInteracting}
+            autoRotate={!reducedMotion && !isInteracting && !isNavigating}
             autoRotateSpeed={0.38}
             onStart={() => setIsInteracting(true)}
             onEnd={() => setIsInteracting(false)}

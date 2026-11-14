@@ -128,7 +128,7 @@ export function FoundReveal({
   onClose,
 }: FoundRevealProps) {
   const prefersReducedMotion = useReducedMotion();
-  const { playSound } = useSound();
+  const { playSound, playSignature } = useSound();
 
   // Sequence phase: "zoom" (0..0.55s) -> "comet" (0.55..1.65s) -> "modal"
   const [phase, setPhase] = useState<"zoom" | "comet" | "modal">("modal");
@@ -139,7 +139,8 @@ export function FoundReveal({
   const primaryButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const triggerCelebration = useCallback(() => {
-    playSound("success");
+    playSound("reveal");
+    playSignature(objectType);
     try {
       confetti({
         particleCount: 65,
@@ -157,7 +158,7 @@ export function FoundReveal({
     } catch {
       // Ignore confetti errors
     }
-  }, [playSound]);
+  }, [playSound, playSignature, objectType]);
 
   const skipToModal = useCallback(() => {
     setPhase("modal");

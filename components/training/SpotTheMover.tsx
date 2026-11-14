@@ -634,8 +634,8 @@ export function SpotTheMover({
         snapshotDataUrl,
       });
     } else {
-      // Miss -> small peach ripple where tapped, -10 points, soft click sound
-      playSound("click");
+      // Miss -> small peach ripple where tapped, -10 points, wrong sound
+      playSound("wrong");
       setMissedInRound(true);
       missRipplesRef.current.push({
         x: clickX,

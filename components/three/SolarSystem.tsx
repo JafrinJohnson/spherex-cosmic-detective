@@ -10,7 +10,7 @@ import React, {
   useState,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Html, Line, OrbitControls, useTexture } from "@react-three/drei";
+import { Line, OrbitControls, useTexture, Billboard, Text } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -935,19 +935,20 @@ function SolarSystemCore({
               </group>
             )}
 
-            {/* Hover label: small clean label with planet name */}
-            {(isHovered || isSelected) && (
-              <Html
-                position={[0, planet.size + 0.45, 0]}
-                center
-                distanceFactor={16}
-                style={{ pointerEvents: "none" }}
+            {/* Hover label via Billboard + Text (WebGL, zero React DOM roots) */}
+            <Billboard position={[0, planet.size + 0.45, 0]}>
+              <Text
+                visible={isHovered || isSelected}
+                fontSize={0.28}
+                color="#F1EEFF"
+                outlineWidth={0.018}
+                outlineColor="#07090F"
+                anchorX="center"
+                anchorY="bottom"
               >
-                <div className="px-2.5 py-0.5 rounded bg-[#07090F]/90 border border-white/20 text-xs text-slate-100 whitespace-nowrap shadow-md">
-                  {planet.name}
-                </div>
-              </Html>
-            )}
+                {planet.name}
+              </Text>
+            </Billboard>
           </group>
         );
       })}

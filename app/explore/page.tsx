@@ -14,6 +14,7 @@ import {
 } from "@/components/explore/SearchPanel";
 import { PageTransition } from "@/components/PageTransition";
 import { useSound } from "@/components/SoundProvider";
+import { ThreeErrorBoundary } from "@/components/three/ThreeErrorBoundary";
 
 const SkyGlobe = dynamic(() => import("@/components/three/SkyGlobe"), {
   ssr: false,
@@ -55,7 +56,7 @@ const QUICK_PICK_LABELS: Record<string, string> = {
 export default function ExplorePage() {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
-  const { playSound } = useSound();
+  const { playSound, playSignature } = useSound();
 
   const [targets, setTargets] = useState<Target[]>([]);
 
@@ -65,6 +66,7 @@ export default function ExplorePage() {
   const [decInput, setDecInput] = useState<string>("4.6934");
   const [fov, setFov] = useState<number>(5);
   const [band, setBand] = useState<string>("all");
+  const [isNavigating, setIsNavigating] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
 
   // 3D Globe rotation request state
@@ -130,6 +132,7 @@ export default function ExplorePage() {
   const handleSelectTarget = useCallback(
     (target: Target) => {
       playSound("click");
+      playSignature(target.type || target.id);
       setSelectedTarget(target);
       setObjectQuery(target.name);
       setRaInput(String(target.ra));
@@ -140,7 +143,7 @@ export default function ExplorePage() {
         seq: (prev?.seq ?? 0) + 1,
       }));
     },
-    [playSound]
+    [playSound, playSignature]
   );
 
   const handleRaChange = (val: string) => {
@@ -241,6 +244,7 @@ export default function ExplorePage() {
     if (params.targetId) {
       searchParams.set("target", params.targetId);
     }
+    setIsNavigating(true);
     router.push(`/viewer?${searchParams.toString()}`);
   };
 
@@ -264,6 +268,7 @@ export default function ExplorePage() {
     if (entry.targetId) {
       searchParams.set("target", entry.targetId);
     }
+    setIsNavigating(true);
     router.push(`/viewer?${searchParams.toString()}`);
   };
 
@@ -318,11 +323,10 @@ export default function ExplorePage() {
                       ? `${primaryColor}26`
                       : undefined,
                   }}
-                  className={`glass px-4 py-2 rounded-full text-xs sm:text-sm font-medium flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${
-                    isSelected
-                      ? "text-cosmic-text shadow-sm"
-                      : "text-cosmic-muted hover:text-cosmic-text"
-                  }`}
+                  className={`glass px-4 py-2 rounded-full text-xs sm:text-sm font-medium flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${isSelected
+                    ? "text-cosmic-text shadow-sm"
+                    : "text-cosmic-muted hover:text-cosmic-text"
+                    }`}
                 >
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -347,13 +351,16 @@ export default function ExplorePage() {
           transition={{ duration: 0.45, delay: 0.05 }}
           className="lg:col-span-6 w-full"
         >
-          <SkyGlobe
-            targets={targets}
-            selectedTargetId={selectedTarget?.id ?? null}
-            crosshairCoords={validCoords}
-            focusRequest={focusRequest}
-            onSelectTarget={handleSelectTarget}
-          />
+          <ThreeErrorBoundary>
+            <SkyGlobe
+              targets={targets}
+              selectedTargetId={selectedTarget?.id ?? null}
+              crosshairCoords={validCoords}
+              focusRequest={focusRequest}
+              onSelectTarget={handleSelectTarget}
+              isNavigating={isNavigating}
+            />
+          </ThreeErrorBoundary>
         </motion.div>
 
         {/* Column 2 (Bottom on Mobile, Right on Desktop): Search Panel & Recent Searches */}

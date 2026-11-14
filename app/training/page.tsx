@@ -491,7 +491,7 @@ export default function TrainingPage() {
 
         if (freshlyUnlocked) {
           setNewlyUnlockedBadge(freshlyUnlocked);
-          playSound("success");
+          playSound("levelup");
           try {
             confetti({
               particleCount: 70,
@@ -619,9 +619,10 @@ export default function TrainingPage() {
   );
 
   const handleMiss = useCallback(() => {
+    playSound("wrong");
     setScore((prev) => Math.max(0, prev - 10));
     setStreak(0);
-  }, []);
+  }, [playSound]);
 
   const handleDeductPoints = useCallback((pts: number) => {
     setScore((prev) => Math.max(0, prev - pts));

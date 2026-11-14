@@ -660,8 +660,8 @@ export function CompareSkies({
         playSound("click");
       }
     } else {
-      // Wrong tap: peach ripple, lose a life, -10 points
-      playSound("click");
+      // Wrong tap: peach ripple, lose a life, -10 points, wrong sound
+      playSound("wrong");
       ripplesRef.current.push({
         canvasIdx: canvasIndex,
         x: clickX,

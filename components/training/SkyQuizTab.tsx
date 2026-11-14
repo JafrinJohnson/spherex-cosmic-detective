@@ -80,7 +80,7 @@ export function SkyQuizTab({
           onUpdateBestScore(nextScore);
         }
       } else {
-        playSound("click");
+        playSound("wrong");
       }
     },
     [
@@ -136,7 +136,7 @@ export function SkyQuizTab({
             next[currentIndex] = "wrong";
             return next;
           });
-          playSound("click");
+          playSound("wrong");
           return 0;
         }
         return prev - 1;

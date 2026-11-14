@@ -453,6 +453,9 @@ export default function AboutPage() {
             <p className="text-sm text-cosmic-muted leading-relaxed">
               Planet textures: Solar System Scope, CC BY 4.0.
             </p>
+            <p className="text-sm text-cosmic-muted leading-relaxed">
+              Music and sound effects: original, created for this project.
+            </p>
           </div>
 
           <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 text-xs text-cosmic-muted leading-relaxed">

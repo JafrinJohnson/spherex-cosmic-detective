@@ -151,8 +151,10 @@ export function SearchPanel({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFormSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && "preventDefault" in e) {
+      e.preventDefault();
+    }
     if (parsedRa === null || parsedDec === null) return;
     playSound("whoosh");
 
@@ -338,11 +340,10 @@ export function SearchPanel({
               placeholder="133.7951 or 08h55m10.83s"
               aria-invalid={!isRaValid && raInput.trim().length > 0}
               aria-describedby="ra-helper-text"
-              className={`w-full px-4 py-3 rounded-2xl bg-white/[0.06] border text-sm font-mono text-cosmic-text placeholder:text-cosmic-muted/50 focus:outline-none focus:ring-2 transition-all ${
-                !isRaValid && raInput.trim().length > 0
-                  ? "border-pastel-peach focus:ring-pastel-peach"
-                  : "border-white/15 focus:ring-pastel-lavender focus:border-pastel-lavender"
-              }`}
+              className={`w-full px-4 py-3 rounded-2xl bg-white/[0.06] border text-sm font-mono text-cosmic-text placeholder:text-cosmic-muted/50 focus:outline-none focus:ring-2 transition-all ${!isRaValid && raInput.trim().length > 0
+                ? "border-pastel-peach focus:ring-pastel-peach"
+                : "border-white/15 focus:ring-pastel-lavender focus:border-pastel-lavender"
+                }`}
             />
             <div id="ra-helper-text" className="min-h-[24px] text-xs">
               {isRaValid ? (
@@ -381,11 +382,10 @@ export function SearchPanel({
               placeholder="-7.2451 or -07d14m42.5s"
               aria-invalid={!isDecValid && decInput.trim().length > 0}
               aria-describedby="dec-helper-text"
-              className={`w-full px-4 py-3 rounded-2xl bg-white/[0.06] border text-sm font-mono text-cosmic-text placeholder:text-cosmic-muted/50 focus:outline-none focus:ring-2 transition-all ${
-                !isDecValid && decInput.trim().length > 0
-                  ? "border-pastel-peach focus:ring-pastel-peach"
-                  : "border-white/15 focus:ring-pastel-lavender focus:border-pastel-lavender"
-              }`}
+              className={`w-full px-4 py-3 rounded-2xl bg-white/[0.06] border text-sm font-mono text-cosmic-text placeholder:text-cosmic-muted/50 focus:outline-none focus:ring-2 transition-all ${!isDecValid && decInput.trim().length > 0
+                ? "border-pastel-peach focus:ring-pastel-peach"
+                : "border-white/15 focus:ring-pastel-lavender focus:border-pastel-lavender"
+                }`}
             />
             <div id="dec-helper-text" className="min-h-[24px] text-xs">
               {isDecValid ? (
@@ -444,7 +444,7 @@ export function SearchPanel({
           </div>
         </div>
 
-        {/* Field 5: Infrared Band Segmented Control */}
+        {/* Field 5: Infrared Band Segmented Control with soft fade edges & hidden scrollbar */}
         <div className="space-y-2.5">
           <span
             id="ir-band-label"
@@ -453,50 +453,56 @@ export function SearchPanel({
             Infrared band
           </span>
 
-          <div
-            role="radiogroup"
-            aria-labelledby="ir-band-label"
-            className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar"
-          >
-            {INFRARED_BANDS.map((item) => {
-              const active = band === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => {
-                    playSound("click");
-                    onBandChange(item.id);
-                  }}
-                  style={{
-                    backgroundColor: active ? `${item.accent}2E` : undefined,
-                    borderColor: active ? item.accent : undefined,
-                  }}
-                  className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${
-                    active
-                      ? "text-cosmic-text shadow-sm"
-                      : "bg-white/[0.05] border-white/15 text-cosmic-muted hover:text-cosmic-text hover:bg-white/[0.1]"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
+          <div className="relative group">
+            {/* Left & Right Soft Fade Edges */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-2 w-6 bg-gradient-to-r from-[#0B0B1E] to-transparent z-10 opacity-70" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-6 bg-gradient-to-l from-[#0B0B1E] to-transparent z-10 opacity-70" />
+
+            <div
+              role="radiogroup"
+              aria-labelledby="ir-band-label"
+              className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {INFRARED_BANDS.map((item) => {
+                const active = band === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => {
+                      playSound("click");
+                      onBandChange(item.id);
+                    }}
+                    style={{
+                      backgroundColor: active ? `${item.accent}2E` : undefined,
+                      borderColor: active ? item.accent : undefined,
+                    }}
+                    className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-pastel-lavender ${
+                      active
+                        ? "text-cosmic-text shadow-sm"
+                        : "bg-white/[0.05] border-white/15 text-cosmic-muted hover:text-cosmic-text hover:bg-white/[0.1]"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* Submit Button */}
         <div className="space-y-2 pt-2">
           <button
-            type="submit"
+            type="button"
+            onClick={handleFormSubmit}
             disabled={!isFormValid}
-            className={`w-full py-4 px-6 rounded-full font-heading font-semibold text-sm sm:text-base tracking-wide flex items-center justify-center gap-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-peach ${
-              isFormValid
-                ? "bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 cursor-pointer"
-                : "bg-white/10 text-cosmic-muted border border-white/15 cursor-not-allowed opacity-60"
-            }`}
+            className={`w-full py-4 px-6 rounded-full font-heading font-semibold text-sm sm:text-base tracking-wide flex items-center justify-center gap-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-peach ${isFormValid
+              ? "bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 cursor-pointer"
+              : "bg-white/10 text-cosmic-muted border border-white/15 cursor-not-allowed opacity-60"
+              }`}
           >
             <Sparkles className="w-4 h-4" />
             <span>Investigate this sky</span>

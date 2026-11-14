@@ -10,7 +10,7 @@ import React, {
   useState,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Html, Line, OrbitControls, useTexture } from "@react-three/drei";
+import { Line, OrbitControls, useTexture, Billboard, Text } from "@react-three/drei";
 import {
   EffectComposer,
   Bloom,
@@ -20,6 +20,7 @@ import {
 } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { useSound } from "@/components/SoundProvider";
 
 const TEXTURE_PATHS = {
   sun: "/textures/sun.jpg",
@@ -1495,18 +1496,19 @@ function UnifiedCosmicScene({
                 )}
               </group>
 
-              {(isHovered || isSelected) && (
-                <Html
-                  position={[0, body.cinematicSize + 0.38, 0]}
-                  center
-                  distanceFactor={10}
-                  style={{ pointerEvents: "none" }}
+              <Billboard position={[0, body.cinematicSize + 0.38, 0]}>
+                <Text
+                  visible={isHovered || isSelected}
+                  fontSize={0.22}
+                  color="#F1EEFF"
+                  outlineWidth={0.015}
+                  outlineColor="#07090F"
+                  anchorX="center"
+                  anchorY="bottom"
                 >
-                  <div className="px-3 py-1 rounded-full bg-[#07090F]/90 border border-white/25 text-[14px] font-medium text-cosmic-text whitespace-nowrap shadow-lg">
-                    {body.name}
-                  </div>
-                </Html>
-              )}
+                  {body.name}
+                </Text>
+              </Billboard>
             </group>
           );
         })}
@@ -1665,18 +1667,19 @@ function UnifiedCosmicScene({
                 </group>
               )}
 
-              {(isHovered || isSelected) && (
-                <Html
-                  position={[0, planet.size + 0.45, 0]}
-                  center
-                  distanceFactor={16}
-                  style={{ pointerEvents: "none" }}
+              <Billboard position={[0, planet.size + 0.45, 0]}>
+                <Text
+                  visible={isHovered || isSelected}
+                  fontSize={0.28}
+                  color="#F1EEFF"
+                  outlineWidth={0.018}
+                  outlineColor="#07090F"
+                  anchorX="center"
+                  anchorY="bottom"
                 >
-                  <div className="px-3 py-1 rounded-full bg-[#07090F]/90 border border-white/25 text-[14px] font-medium text-cosmic-text whitespace-nowrap shadow-md">
-                    {planet.name}
-                  </div>
-                </Html>
-              )}
+                  {planet.name}
+                </Text>
+              </Billboard>
             </group>
           );
         })}
@@ -1781,9 +1784,17 @@ export default function CinematicHero({
 }: CinematicHeroProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isVisibleRef = useRef(true);
+  const { playSignature } = useSound();
   const [internalViewMode, setInternalViewMode] =
     useState<HeroViewMode>("cinematic");
   const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null);
+
+  const handleSelectBodyWithSound = (id: string | null) => {
+    setSelectedBodyId(id);
+    if (id) {
+      playSignature(id);
+    }
+  };
   const [isMobile, setIsMobile] = useState(false);
   const [contextLost, setContextLost] = useState(false);
   const [highResEarthDay, setHighResEarthDay] =
@@ -1913,7 +1924,7 @@ export default function CinematicHero({
               highResEarthDay={highResEarthDay}
               viewMode={viewMode}
               selectedBodyId={selectedBodyId}
-              onSelectBody={setSelectedBodyId}
+              onSelectBody={handleSelectBodyWithSound}
               isMobile={isMobile}
               isVisibleRef={isVisibleRef}
             />
@@ -1924,7 +1935,7 @@ export default function CinematicHero({
               highResEarthDay={highResEarthDay}
               viewMode={viewMode}
               selectedBodyId={selectedBodyId}
-              onSelectBody={setSelectedBodyId}
+              onSelectBody={handleSelectBodyWithSound}
               isMobile={isMobile}
               isVisibleRef={isVisibleRef}
             />

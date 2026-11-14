@@ -327,7 +327,7 @@ export function MissionsTab({
         setQuizCorrectCount((c) => c + 1);
         onAddPoints(50);
       } else {
-        playSound("click");
+        playSound("wrong");
       }
     },
     [quizSelected, quizQuestions, quizIndex, playSound, onAddPoints]

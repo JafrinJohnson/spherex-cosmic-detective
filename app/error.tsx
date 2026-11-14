@@ -19,8 +19,8 @@ export default function GlobalError({
         </div>
 
         <div className="space-y-2">
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-cosmic-text">
-            Telemetry signal interrupted
+          <h1 className="font-heading text-2xl sm:text-3xl font-medium text-cosmic-text">
+            Signal interrupted
           </h1>
           <p className="text-sm sm:text-base text-cosmic-muted leading-relaxed">
             {error?.message ||
@@ -32,7 +32,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={() => reset()}
-            className="min-h-[44px] inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-peach"
+            className="min-h-[44px] inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium bg-infrared-gradient text-[#07090F] shadow-infrared-glow hover:opacity-95 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-peach"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Try again</span>
@@ -40,7 +40,7 @@ export default function GlobalError({
 
           <Link
             href="/explore"
-            className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold bg-white/[0.08] hover:bg-white/[0.15] text-cosmic-text border border-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-lavender"
+            className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-white/[0.08] hover:bg-white/[0.15] text-cosmic-text border border-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-lavender"
           >
             <Compass className="w-4 h-4 text-pastel-sky" />
             <span>Return to Explore</span>
@@ -50,4 +50,3 @@ export default function GlobalError({
     </div>
   );
 }
-

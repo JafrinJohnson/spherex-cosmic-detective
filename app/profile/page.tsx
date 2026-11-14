@@ -249,7 +249,7 @@ export default function ProfilePage() {
           <div>
             <label
               htmlFor="profile-name"
-              className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA]"
+              className="block text-xs font-medium text-[#CFCBEA]"
             >
               Display name
             </label>
@@ -277,7 +277,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <span className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA] mb-2">
+            <span className="block text-xs font-medium text-[#CFCBEA] mb-2">
               Your role
             </span>
             <RolePickerCards

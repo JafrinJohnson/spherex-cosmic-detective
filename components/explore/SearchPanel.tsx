@@ -237,7 +237,7 @@ export function SearchPanel({
         <div ref={autocompleteRef} className="relative space-y-1.5">
           <label
             htmlFor="object-name-input"
-            className="block text-xs font-medium uppercase tracking-wider text-cosmic-text"
+            className="block text-xs font-medium text-cosmic-text"
           >
             Object name
           </label>
@@ -301,7 +301,7 @@ export function SearchPanel({
                           />
                           <span>{t.name}</span>
                           <span className="text-xs font-normal text-pastel-peach">
-                            — {t.nickname}
+                            · {t.nickname}
                           </span>
                         </div>
                         <div className="text-[11px] text-cosmic-muted mt-0.5">
@@ -326,7 +326,7 @@ export function SearchPanel({
           <div className="space-y-1.5">
             <label
               htmlFor="ra-coord-input"
-              className="block text-xs font-medium uppercase tracking-wider text-cosmic-text"
+              className="block text-xs font-medium text-cosmic-text"
             >
               Right Ascension
             </label>
@@ -344,7 +344,7 @@ export function SearchPanel({
                   : "border-white/15 focus:ring-pastel-lavender focus:border-pastel-lavender"
               }`}
             />
-            <div id="ra-helper-text" className="min-h-[36px] text-xs space-y-0.5">
+            <div id="ra-helper-text" className="min-h-[24px] text-xs">
               {isRaValid ? (
                 <div className="font-mono text-pastel-mint flex items-center justify-between">
                   <span>= {parsedRa.toFixed(4)}°</span>
@@ -355,13 +355,11 @@ export function SearchPanel({
               ) : raInput.trim().length > 0 ? (
                 <div className="text-pastel-peach flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    Enter 0–360° or sexagesimal (e.g. 08h55m10.83s)
-                  </span>
+                  <span>Enter 0 to 360° or HHhMMmSSs.</span>
                 </div>
               ) : (
                 <span className="text-cosmic-muted">
-                  Degrees (0–360) or HHhMMmSSs / HH:MM:SS
+                  Degrees (0 to 360) or HHhMMmSSs
                 </span>
               )}
             </div>
@@ -371,7 +369,7 @@ export function SearchPanel({
           <div className="space-y-1.5">
             <label
               htmlFor="dec-coord-input"
-              className="block text-xs font-medium uppercase tracking-wider text-cosmic-text"
+              className="block text-xs font-medium text-cosmic-text"
             >
               Declination
             </label>
@@ -389,7 +387,7 @@ export function SearchPanel({
                   : "border-white/15 focus:ring-pastel-lavender focus:border-pastel-lavender"
               }`}
             />
-            <div id="dec-helper-text" className="min-h-[36px] text-xs space-y-0.5">
+            <div id="dec-helper-text" className="min-h-[24px] text-xs">
               {isDecValid ? (
                 <div className="font-mono text-pastel-mint flex items-center justify-between">
                   <span>
@@ -403,13 +401,11 @@ export function SearchPanel({
               ) : decInput.trim().length > 0 ? (
                 <div className="text-pastel-peach flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    Enter −90 to +90° or sexagesimal (e.g. -07d14m42.5s)
-                  </span>
+                  <span>Enter −90 to +90° or ±DDdMMmSSs.</span>
                 </div>
               ) : (
                 <span className="text-cosmic-muted">
-                  Degrees (−90 to +90) or ±DDdMMmSSs / ±DD:MM:SS
+                  Degrees (−90 to +90) or ±DDdMMmSSs
                 </span>
               )}
             </div>
@@ -421,11 +417,11 @@ export function SearchPanel({
           <div className="flex items-center justify-between">
             <label
               htmlFor="fov-slider"
-              className="text-xs font-medium uppercase tracking-wider text-cosmic-text"
+              className="text-xs font-medium text-cosmic-text"
             >
               Field of view
             </label>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-pastel-sky/15 text-pastel-sky border border-pastel-sky/35">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-pastel-sky/15 text-pastel-sky border border-pastel-sky/35">
               {fov} arcmin
             </span>
           </div>
@@ -442,9 +438,9 @@ export function SearchPanel({
           />
 
           <div className="flex items-center justify-between text-[11px] text-cosmic-muted">
-            <span>2&prime; (Deep zoom)</span>
-            <span>Bigger = catch faster movers, slower to load</span>
-            <span>15&prime; (Wide field)</span>
+            <span>2&prime;</span>
+            <span>Wider fields catch faster movers.</span>
+            <span>15&prime;</span>
           </div>
         </div>
 
@@ -452,7 +448,7 @@ export function SearchPanel({
         <div className="space-y-2.5">
           <span
             id="ir-band-label"
-            className="block text-xs font-medium uppercase tracking-wider text-cosmic-text"
+            className="block text-xs font-medium text-cosmic-text"
           >
             Infrared band
           </span>
@@ -509,8 +505,7 @@ export function SearchPanel({
 
           {!isFormValid && (
             <p className="text-center text-xs text-pastel-peach">
-              Enter valid Right Ascension (0–360°) and Declination (−90° to
-              +90°) coordinates to launch the sky viewer.
+              Enter valid Right Ascension and Declination coordinates.
             </p>
           )}
         </div>
@@ -520,9 +515,9 @@ export function SearchPanel({
       {recentSearches.length > 0 && (
         <div className="glass p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-cosmic-muted">
+            <div className="flex items-center gap-2 text-xs font-medium text-cosmic-muted">
               <Clock className="w-3.5 h-3.5 text-pastel-lavender" />
-              <span>Recent Searches</span>
+              <span>Recent searches</span>
             </div>
 
             <button

@@ -4,16 +4,15 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "framer-motion";
-import { Compass, Sparkles, Orbit } from "lucide-react";
-import { getTargets, getFrames } from "@/lib/api";
+import { Compass, Orbit } from "lucide-react";
+import { getTargets } from "@/lib/api";
 import { parseRA, parseDec } from "@/lib/coords";
-import type { Target, TargetMeta } from "@/types";
+import type { Target } from "@/types";
 import {
   SearchPanel,
   type RecentSearchEntry,
 } from "@/components/explore/SearchPanel";
 import { PageTransition } from "@/components/PageTransition";
-import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
 
 const SkyGlobe = dynamic(() => import("@/components/three/SkyGlobe"), {
@@ -35,8 +34,8 @@ const SkyGlobe = dynamic(() => import("@/components/three/SkyGlobe"), {
         <div className="w-40 h-40 rounded-full border border-pastel-lavender/35 bg-pastel-lavender/5 flex items-center justify-center shadow-[0_0_50px_rgba(195,177,225,0.2)]">
           <Orbit className="w-8 h-8 text-pastel-lavender animate-pulse" />
         </div>
-        <span className="text-xs font-mono uppercase tracking-widest text-cosmic-muted">
-          Loading Celestial Sphere...
+        <span className="text-xs text-cosmic-muted">
+          Loading celestial sphere...
         </span>
       </div>
     </div>
@@ -59,7 +58,6 @@ export default function ExplorePage() {
   const { playSound } = useSound();
 
   const [targets, setTargets] = useState<Target[]>([]);
-  const [meta, setMeta] = useState<TargetMeta | null>(null);
 
   // Search form states
   const [objectQuery, setObjectQuery] = useState<string>("Barnard's Star");
@@ -91,9 +89,6 @@ export default function ExplorePage() {
         setObjectQuery(first.name);
         setRaInput(String(first.ra));
         setDecInput(String(first.dec));
-        getFrames(first.id).then((m) => {
-          if (active) setMeta(m);
-        });
       }
     });
 
@@ -290,29 +285,20 @@ export default function ExplorePage() {
         transition={{ duration: 0.4 }}
         className="space-y-4"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider bg-pastel-sky/15 border border-pastel-sky/35 text-pastel-sky">
-            <Compass className="w-3.5 h-3.5" />
-            <span>SPHEREx All-Sky Navigator</span>
-          </div>
-          <SampleDataBadge source={meta?.source ?? "placeholder"} />
-        </div>
-
         <div className="space-y-2 max-w-2xl">
-          <h1 className="font-heading text-3xl sm:text-5xl font-bold text-gradient-headline">
+          <h1 className="font-heading text-3xl sm:text-5xl font-medium text-cosmic-text">
             Where should we look?
           </h1>
-          <p className="text-base sm:text-lg text-cosmic-muted leading-relaxed">
+          <p className="text-base sm:text-lg text-cosmic-muted">
             Enter a position in the sky, or pick a famous mover.
           </p>
         </div>
 
         {/* QUICK PICKS: Row of 5 glass chips "Famous movers" */}
         <div className="pt-2 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-pastel-lavender">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Famous movers</span>
-          </div>
+          <h2 className="text-sm font-medium text-cosmic-muted">
+            Famous movers
+          </h2>
 
           <div className="flex flex-wrap items-center gap-2.5">
             {targets.map((target) => {

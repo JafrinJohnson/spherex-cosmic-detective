@@ -259,8 +259,7 @@ export function DetectivePanel({
               Click any dot in the image to investigate it.
             </p>
             <p className="text-xs text-cosmic-muted max-w-xs mx-auto">
-              We will measure its position and brightness across every SPHEREx
-              visit within an 8-pixel search radius.
+              Measures position and brightness across visits.
             </p>
           </motion.div>
         )}
@@ -275,9 +274,9 @@ export function DetectivePanel({
             transition={{ duration: 0.25 }}
             className="p-6 rounded-2xl bg-pastel-peach/10 border border-pastel-peach/35 text-center space-y-3"
           >
-            <p className="font-heading text-base font-semibold text-pastel-peach">
+            <p className="font-heading text-base font-medium text-pastel-peach">
               {investigation.message ||
-                "Nothing bright here — try clicking right on a dot"}
+                "Nothing bright here. Try clicking right on a dot."}
             </p>
             <p className="text-xs text-cosmic-muted">
               Clicked pixel ({investigation.clickedX}, {investigation.clickedY})
@@ -306,11 +305,11 @@ export function DetectivePanel({
                   className={`p-4 rounded-2xl border ${style.bg} ${style.border} flex items-center justify-between gap-4`}
                 >
                   <div className="space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-cosmic-muted block">
-                      Classification Verdict
-                    </span>
+                    <h3 className="text-xs font-medium text-cosmic-muted">
+                      Verdict
+                    </h3>
                     <div
-                      className={`font-heading text-xl sm:text-2xl font-bold flex items-center gap-2.5 ${style.text}`}
+                      className={`font-heading text-xl sm:text-2xl font-medium flex items-center gap-2.5 ${style.text}`}
                     >
                       <span
                         className="w-3 h-3 rounded-full shrink-0"
@@ -325,7 +324,7 @@ export function DetectivePanel({
                     <img
                       src={thumbnailDataUrl}
                       alt="128px crop of selected source"
-                      className="w-14 h-14 rounded-xl border border-white/25 object-cover shrink-0 bg-[#0B0B1E]"
+                      className="w-14 h-14 rounded-xl border border-white/25 object-cover shrink-0 bg-[#07090F]"
                     />
                   )}
                 </div>
@@ -336,10 +335,10 @@ export function DetectivePanel({
             <div className="grid grid-cols-2 gap-3">
               {/* Tile 1: Moved (arcsec) */}
               <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/15 space-y-1">
-                <div className="text-[11px] font-mono uppercase text-cosmic-muted">
+                <div className="text-xs text-cosmic-muted">
                   Moved
                 </div>
-                <div className="font-heading text-xl font-bold text-cosmic-text">
+                <div className="font-mono text-xl font-medium text-cosmic-text">
                   {investigation.displacementArcsec.toFixed(1)}″
                 </div>
                 <div className="text-[11px] font-mono text-pastel-peach">
@@ -349,10 +348,10 @@ export function DetectivePanel({
 
               {/* Tile 2: Speed (″/day) */}
               <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/15 space-y-1">
-                <div className="text-[11px] font-mono uppercase text-cosmic-muted">
+                <div className="text-xs text-cosmic-muted">
                   Speed
                 </div>
-                <div className="font-heading text-xl font-bold text-cosmic-text">
+                <div className="font-mono text-xl font-medium text-cosmic-text">
                   {investigation.speedArcsecPerDay.toFixed(3)}″/day
                 </div>
                 <div className="text-[11px] font-mono text-pastel-sky">
@@ -362,11 +361,11 @@ export function DetectivePanel({
 
               {/* Tile 3: Direction (Mini Compass with Rotating Arrow) */}
               <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/15 space-y-1.5">
-                <div className="text-[11px] font-mono uppercase text-cosmic-muted">
+                <div className="text-xs text-cosmic-muted">
                   Direction
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-[#0B0B1E]/80 border border-white/20 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-[#07090F]/80 border border-white/20 flex items-center justify-center shrink-0">
                     <svg
                       width="20"
                       height="20"
@@ -386,7 +385,7 @@ export function DetectivePanel({
                       />
                     </svg>
                   </div>
-                  <div className="text-xs font-semibold text-cosmic-text leading-tight capitalize">
+                  <div className="text-xs font-medium text-cosmic-text leading-tight capitalize">
                     {investigation.directionWords}
                   </div>
                 </div>
@@ -394,13 +393,13 @@ export function DetectivePanel({
 
               {/* Tile 4: Brightness Change (%) */}
               <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/15 space-y-1">
-                <div className="text-[11px] font-mono uppercase text-cosmic-muted">
+                <div className="text-xs text-cosmic-muted">
                   Brightness change
                 </div>
-                <div className="font-heading text-xl font-bold text-cosmic-text">
+                <div className="font-mono text-xl font-medium text-cosmic-text">
                   {investigation.brightnessChangePct.toFixed(1)}%
                 </div>
-                <div className="text-[11px] font-mono text-pastel-mint">
+                <div className="text-[11px] text-pastel-mint">
                   Min to max visit
                 </div>
               </div>
@@ -410,7 +409,7 @@ export function DetectivePanel({
             <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-cosmic-muted">Pixel position</span>
-                <span className="font-mono font-semibold text-cosmic-text">
+                <span className="font-mono font-medium text-cosmic-text">
                   x: {investigation.clickedX} px, y: {investigation.clickedY} px
                 </span>
               </div>
@@ -435,9 +434,9 @@ export function DetectivePanel({
 
             {/* Known Object Check */}
             <div className="space-y-1.5">
-              <div className="text-[11px] font-mono uppercase tracking-wider text-cosmic-muted">
+              <h3 className="text-sm font-medium text-cosmic-text">
                 Known object check
-              </div>
+              </h3>
 
               {checkingKnown ? (
                 <div className="px-3.5 py-2.5 rounded-2xl bg-white/[0.05] border border-white/15 text-xs text-cosmic-muted flex items-center gap-2">
@@ -452,13 +451,13 @@ export function DetectivePanel({
               ) : knownResult.status === "unmatched" ? (
                 <div className="px-3.5 py-2.5 rounded-2xl bg-[#FFB5A7]/15 border border-[#FFB5A7]/45 text-xs font-medium text-[#FFB5A7] flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                  <span>No known star here — interesting!</span>
+                  <span>No known star here, interesting!</span>
                 </div>
               ) : (
                 <div className="px-3.5 py-2.5 rounded-2xl bg-white/[0.06] border border-white/15 text-xs text-cosmic-muted flex items-center gap-2">
                   <Database className="w-3.5 h-3.5 text-pastel-lavender shrink-0" />
                   <span>
-                    Gaia check runs when the data server is connected
+                    Gaia check runs when the data server is connected.
                   </span>
                 </div>
               )}
@@ -486,7 +485,7 @@ export function DetectivePanel({
               <button
                 type="button"
                 onClick={handleSaveCandidate}
-                className="w-full min-h-[44px] py-3 px-5 rounded-full font-heading font-semibold text-xs sm:text-sm uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-peach"
+                className="w-full min-h-[44px] py-3 px-5 rounded-full font-heading font-medium text-sm bg-infrared-gradient text-[#07090F] shadow-infrared-glow hover:opacity-95 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-peach"
               >
                 Mark as candidate
               </button>

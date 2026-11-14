@@ -86,7 +86,7 @@ export function QuizCard({
         : [
             "It stayed still and only changed brightness",
             "It moved position between Photo A and Photo B",
-            "Neither — it was a static background star",
+            "Neither, it was a static background star",
           ];
       const correctIndex = lastOutcome.hasDecoy ? 0 : 1;
 
@@ -153,9 +153,9 @@ export function QuizCard({
   return (
     <div className="glass p-6 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-mono font-bold uppercase tracking-widest text-[#FFC8DD]">
-          WHAT DID YOU SEE?
-        </span>
+        <h2 className="font-heading text-lg font-medium text-cosmic-text">
+          What did you see?
+        </h2>
         {questionData && (
           <span className="text-[11px] font-mono text-cosmic-muted">
             Keys 1 · 2 · 3

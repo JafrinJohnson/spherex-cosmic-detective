@@ -132,11 +132,8 @@ export function Navbar() {
             <Telescope className="w-4 h-4 text-pastel-peach" />
           </span>
           <div className="flex flex-col">
-            <span className="font-heading font-bold tracking-wider text-sm sm:text-base text-gradient-headline">
-              COSMIC DETECTIVE
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-cosmic-muted hidden sm:block">
-              NASA SPHEREx Sky Survey
+            <span className="font-heading font-bold tracking-[0.02em] text-lg sm:text-xl text-cosmic-text">
+              Cosmic Detective
             </span>
           </div>
         </Link>
@@ -174,14 +171,14 @@ export function Navbar() {
           })}
         </div>
 
-        {/* Right Actions: Open Blinker + Sign-in / User Avatar Dropdown */}
+        {/* Right Actions: Explore + Sign-in / User Avatar Dropdown */}
         <div className="hidden md:flex items-center gap-2.5">
           <Link
-            href="/viewer?target=barnards-star"
+            href="/explore"
             onClick={() => playSound("whoosh")}
-            className="min-h-[44px] inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow hover:opacity-95 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-peach"
+            className="min-h-[44px] inline-flex items-center px-5 py-2 rounded-full text-[17px] font-medium bg-infrared-gradient text-[#07090F] shadow-infrared-glow hover:opacity-95 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-peach"
           >
-            Open Blinker
+            Explore
           </Link>
 
           {!user ? (
@@ -506,14 +503,14 @@ export function Navbar() {
               </div>
 
               <Link
-                href="/viewer?target=barnards-star"
+                href="/explore"
                 onClick={() => {
                   playSound("whoosh");
                   setMobileOpen(false);
                 }}
-                className="min-h-[44px] mt-1 w-full py-3 rounded-2xl flex items-center justify-center text-xs font-semibold uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-peach"
+                className="min-h-[44px] mt-1 w-full py-3 rounded-2xl flex items-center justify-center text-sm font-medium bg-infrared-gradient text-[#07090F] shadow-infrared-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pastel-peach"
               >
-                Launch Sky Blinker
+                Explore
               </Link>
             </div>
           </motion.div>

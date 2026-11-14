@@ -639,13 +639,13 @@ export function SpotTheMover({
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="px-3 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-wider bg-pastel-lavender/20 border border-pastel-lavender/45 text-pastel-lavender">
+            <span className="px-3 py-1 rounded-full text-xs font-medium bg-pastel-lavender/20 border border-pastel-lavender/45 text-pastel-lavender">
               Level {level}
             </span>
 
             {/* Live updating Photo A / Photo B glass chip */}
             <span
-              className={`px-3.5 py-1 rounded-full text-xs font-mono font-medium border transition-colors ${
+              className={`px-3.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                 photoIndex === 0
                   ? "bg-pastel-sky/20 border-pastel-sky/50 text-pastel-sky"
                   : "bg-pastel-peach/20 border-pastel-peach/50 text-pastel-peach"

@@ -494,7 +494,7 @@ export function FoundReveal({
             >
               {/* Top Bar */}
               <div className="flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-wider bg-pastel-mint/20 border border-pastel-mint/45 text-pastel-mint">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-medium bg-pastel-mint/20 border border-pastel-mint/45 text-pastel-mint">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{meta.badge}</span>
                 </span>
@@ -552,15 +552,15 @@ export function FoundReveal({
                   {/* Points Earned Counter */}
                   <div className="p-3.5 rounded-2xl bg-[#FFD166]/10 border border-[#FFD166]/35 flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <div className="text-[11px] font-mono uppercase tracking-wider text-pastel-peach">
-                        Points Earned
+                      <div className="text-xs font-medium text-pastel-peach">
+                        Points earned
                       </div>
-                      <div className="text-xs text-cosmic-muted">
+                      <div className="text-xs text-cosmic-muted font-mono">
                         +{basePoints} base
                         {speedBonus > 0 ? ` · +${speedBonus} speed bonus` : ""}
                       </div>
                     </div>
-                    <div className="font-heading text-2xl sm:text-3xl font-bold text-[#FFD166]">
+                    <div className="font-mono text-2xl sm:text-3xl font-medium text-[#FFD166]">
                       +{displayPoints}
                     </div>
                   </div>

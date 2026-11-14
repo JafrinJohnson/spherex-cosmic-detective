@@ -37,7 +37,6 @@ import {
 import { DetectivePanel } from "@/components/viewer/DetectivePanel";
 import { SpectrumChart } from "@/components/viewer/SpectrumChart";
 import { PageTransition } from "@/components/PageTransition";
-import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
 
 const BAND_LABELS: Record<string, string> = {
@@ -451,15 +450,11 @@ function ViewerContent() {
 
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-pastel-lavender/15 text-pastel-lavender border border-pastel-lavender/35">
               <Layers className="w-3.5 h-3.5" />
-              <span>{frames.length} SPHEREx visits</span>
+              <span>{frames.length} visits</span>
             </span>
-
-            {isPlaceholderSource && (
-              <SampleDataBadge source={meta?.source ?? "placeholder"} />
-            )}
           </div>
 
-          <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-gradient-headline">
+          <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-medium text-cosmic-text">
             {activeTarget
               ? activeTarget.nickname
               : `Sky at RA ${displayRa.toFixed(2)}°, Dec ${displayDec.toFixed(2)}°`}
@@ -604,22 +599,12 @@ function ViewerContent() {
                   {pixelScale}″ / pixel
                 </dd>
               </div>
-
-              <div className="py-3 flex items-center justify-between gap-4">
-                <dt className="text-cosmic-muted">Data source</dt>
-                <dd className="font-medium text-right text-pastel-mint">
-                  {isPlaceholderSource
-                    ? "Sample placeholder"
-                    : "NASA SPHEREx via IRSA"}
-                </dd>
-              </div>
             </dl>
 
             <div className="p-4 rounded-2xl bg-pastel-lavender/10 border border-pastel-lavender/30 flex items-start gap-3">
               <Lightbulb className="w-5 h-5 text-pastel-lavender shrink-0 mt-0.5" />
-              <p className="text-xs sm:text-sm text-cosmic-text leading-relaxed">
-                Tip: stars stay still. Anything that jumps between visits is a
-                mover.
+              <p className="text-xs sm:text-sm text-cosmic-text">
+                Stars stay still; anything that jumps between visits is a mover.
               </p>
             </div>
           </div>
@@ -748,6 +733,13 @@ function ViewerContent() {
           </div>
         </aside>
       </section>
+
+      {/* Single small line inside the Viewer footer when meta.source is "placeholder" */}
+      {isPlaceholderSource && (
+        <footer className="pt-4 border-t border-white/10 text-center text-xs text-cosmic-muted">
+          Showing sample data
+        </footer>
+      )}
 
       {/* Lightweight Toast Component (bottom-centre, glass, auto-hide 2.5 s) */}
       <AnimatePresence>

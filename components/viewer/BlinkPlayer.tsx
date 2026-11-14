@@ -22,7 +22,6 @@ import {
   RotateCcw,
   ZoomIn,
   ZoomOut,
-  Keyboard,
   Sparkles,
   XCircle,
 } from "lucide-react";
@@ -107,8 +106,9 @@ export function BlinkPlayer({
   const [showGrid, setShowGrid] = useState<boolean>(false);
   const [showCrosshair, setShowCrosshair] = useState<boolean>(true);
 
-  // Image Adjust (collapsible)
+  // Image Adjust (collapsible) & Keyboard Shortcuts Tooltip
   const [adjustOpen, setAdjustOpen] = useState<boolean>(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState<boolean>(false);
   const [stretch, setStretch] = useState<number>(0);
   const [smoothPixels, setSmoothPixels] = useState<boolean>(false);
   const [invertColours, setInvertColours] = useState<boolean>(false);
@@ -896,14 +896,16 @@ export function BlinkPlayer({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={() => setPointerPixel(null)}
-          className="relative w-full max-w-[640px] aspect-square rounded-2xl overflow-hidden border border-[#FF8A65]/60 shadow-[0_0_32px_-4px_rgba(255,138,101,0.32)] bg-[#0B0B1E] select-none touch-none cursor-crosshair"
+          style={{ aspectRatio: "1 / 1" }}
+          className="relative w-full max-w-[640px] aspect-square rounded-2xl overflow-hidden border border-[#FF8A65]/50 shadow-[0_0_32px_-4px_rgba(255,138,101,0.25)] bg-[#07090F] select-none touch-none cursor-crosshair"
         >
           {/* Main HTML5 Canvas */}
           <canvas
             ref={mainCanvasRef}
             width={imgSize.width}
             height={imgSize.height}
-            className="w-full h-full block"
+            style={{ aspectRatio: "1 / 1", objectFit: "contain" }}
+            className="w-full h-full aspect-square object-contain block"
           />
 
           {/* Preloading Progress Overlay */}
@@ -1059,7 +1061,7 @@ export function BlinkPlayer({
                 playSound("click");
                 togglePlay();
               }}
-              className="min-h-[44px] px-6 py-2.5 rounded-full font-heading font-semibold text-xs sm:text-sm uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow flex items-center gap-2 hover:opacity-95 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-peach"
+              className="min-h-[44px] px-6 py-2.5 rounded-full font-heading font-medium text-sm bg-infrared-gradient text-[#07090F] shadow-infrared-glow flex items-center gap-2 hover:opacity-95 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-peach"
             >
               {isPlaying ? (
                 <>
@@ -1106,7 +1108,7 @@ export function BlinkPlayer({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-mono uppercase text-cosmic-muted mr-1">
+            <span className="text-xs text-cosmic-muted mr-1">
               Speed
             </span>
             {SPEED_OPTIONS.map((opt) => {
@@ -1119,7 +1121,7 @@ export function BlinkPlayer({
                     playSound("click");
                     setSpeed(opt.value);
                   }}
-                  className={`min-h-[44px] min-w-[48px] px-3 rounded-full text-xs font-mono font-semibold border transition-all focus:outline-none focus:ring-2 focus:ring-pastel-sky ${
+                  className={`min-h-[44px] min-w-[48px] px-3 rounded-full text-xs font-mono font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-pastel-sky ${
                     active
                       ? "bg-pastel-sky/25 border-pastel-sky text-cosmic-text"
                       : "bg-white/[0.05] border-white/10 text-cosmic-muted hover:text-cosmic-text"
@@ -1129,6 +1131,44 @@ export function BlinkPlayer({
                 </button>
               );
             })}
+
+            {/* Small "?" button tooltip for keyboard shortcuts */}
+            <div className="relative ml-1">
+              <button
+                type="button"
+                aria-label="Keyboard shortcuts"
+                onClick={() => setShortcutsOpen((prev) => !prev)}
+                onMouseEnter={() => setShortcutsOpen(true)}
+                onMouseLeave={() => setShortcutsOpen(false)}
+                onFocus={() => setShortcutsOpen(true)}
+                onBlur={() => setShortcutsOpen(false)}
+                className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.14] border border-white/15 text-xs font-medium text-cosmic-muted hover:text-cosmic-text flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-pastel-lavender"
+              >
+                ?
+              </button>
+              {shortcutsOpen && (
+                <div
+                  role="tooltip"
+                  className="absolute right-0 bottom-full mb-2 z-30 w-64 p-3 rounded-xl bg-[#07090F]/95 border border-white/20 shadow-xl text-xs text-cosmic-text space-y-1.5"
+                >
+                  <div className="font-medium text-pastel-lavender">
+                    Keyboard shortcuts
+                  </div>
+                  <div className="flex justify-between text-cosmic-muted">
+                    <span>Play / Pause</span>
+                    <span className="font-mono text-cosmic-text">Space</span>
+                  </div>
+                  <div className="flex justify-between text-cosmic-muted">
+                    <span>Previous / Next frame</span>
+                    <span className="font-mono text-cosmic-text">← / →</span>
+                  </div>
+                  <div className="flex justify-between text-cosmic-muted">
+                    <span>Blink / Diff / Trail</span>
+                    <span className="font-mono text-cosmic-text">B / D / T</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1165,38 +1205,19 @@ export function BlinkPlayer({
                     className={`min-h-[48px] px-3 py-2 rounded-2xl border text-left transition-all focus:outline-none focus:ring-2 focus:ring-pastel-peach ${
                       active
                         ? "bg-[#1A1040]/95 border-[#FFD166] text-cosmic-text shadow-infrared-glow"
-                        : "bg-[#0B0B1E]/90 border-white/15 text-cosmic-muted hover:text-cosmic-text hover:border-white/30"
+                        : "bg-[#07090F]/90 border-white/15 text-cosmic-muted hover:text-cosmic-text hover:border-white/30"
                     }`}
                   >
-                    <div className="text-[10px] font-mono uppercase text-pastel-lavender">
+                    <div className="text-xs text-pastel-lavender">
                       Visit {idx + 1}
                     </div>
-                    <div className="text-xs font-semibold truncate">
+                    <div className="text-xs font-mono font-medium truncate">
                       {frame.date}
                     </div>
                   </button>
                 );
               })}
             </div>
-          </div>
-        </div>
-
-        {/* Keyboard Shortcuts Hint */}
-        <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px] text-cosmic-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <Keyboard className="w-3.5 h-3.5 text-pastel-lavender" />
-            <span>Keyboard shortcuts:</span>
-          </span>
-          <div className="flex flex-wrap items-center gap-2 font-mono">
-            <span className="px-2 py-0.5 rounded bg-white/[0.06] border border-white/10">
-              Space = Play/Pause
-            </span>
-            <span className="px-2 py-0.5 rounded bg-white/[0.06] border border-white/10">
-              ←/→ = Frame
-            </span>
-            <span className="px-2 py-0.5 rounded bg-white/[0.06] border border-white/10">
-              B / D / T = Blink / Diff / Trail
-            </span>
           </div>
         </div>
       </div>

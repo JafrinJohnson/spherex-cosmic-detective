@@ -168,7 +168,7 @@ export function analyzeClickedPoint({
   if (!framesData || framesData.length === 0) {
     return {
       found: false,
-      message: "Nothing bright here — try clicking right on a dot",
+      message: "Nothing bright here. Try clicking right on a dot.",
       clickedX: clickX,
       clickedY: clickY,
       clickedFrameIndex,
@@ -200,7 +200,7 @@ export function analyzeClickedPoint({
   if (!initialBlob.found) {
     return {
       found: false,
-      message: "Nothing bright here — try clicking right on a dot",
+      message: "Nothing bright here. Try clicking right on a dot.",
       clickedX: clickX,
       clickedY: clickY,
       clickedFrameIndex: safeStartIdx,

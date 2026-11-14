@@ -104,7 +104,7 @@ function generateTexture(width, height, pixelFn) {
       const lon = u * Math.PI * 2;
       const nx = Math.cos(lon) * 2.5 + 4.0;
       const ny = Math.sin(lon) * 2.5 + 4.0;
-      const [r, g, b, a] = pixelFn(u, v, lat, nx, ny);
+      const [r, g, b, a] = pixelFn(u, v, lat, nx, ny, x, y);
       const idx = (y * width + x) * 4;
       buf[idx] = Math.max(0, Math.min(255, Math.round(r)));
       buf[idx + 1] = Math.max(0, Math.min(255, Math.round(g)));
@@ -115,95 +115,263 @@ function generateTexture(width, height, pixelFn) {
   return encodePng(width, height, buf);
 }
 
+function earthContinentValue(v, nx, ny) {
+  return fbm(nx * 1.35, v * 4.2 + ny * 0.45, 5);
+}
+
 function main() {
   fs.mkdirSync(TEXTURES_DIR, { recursive: true });
-  const W = 512;
-  const H = 256;
+  const W = 1024;
+  const H = 512;
 
   const files = {
     "sun.jpg": () =>
-      generateTexture(W, H, (u, v, _lat, nx, ny) => {
-        const n = fbm(nx * 2.2, v * 8.0 + ny * 0.6, 5);
-        const flare = Math.pow(n, 1.4);
+      generateTexture(W, H, (_u, v, _lat, nx, ny) => {
+        const n = fbm(nx * 2.6, v * 9.0 + ny * 0.8, 5);
+        const gran = fbm(nx * 6.5 + 2.1, v * 18.0 + ny * 1.7, 4);
+        const flare = Math.pow(n * 0.7 + gran * 0.3, 1.35);
         return [
-          245 + flare * 10,
-          140 + flare * 95,
-          35 + flare * 85,
+          248 + flare * 7,
+          152 + flare * 95,
+          38 + flare * 95,
           255,
         ];
       }),
+
+    "mercury.jpg": () =>
+      generateTexture(W, H, (_u, v, _lat, nx, ny) => {
+        const base = fbm(nx * 2.5 + 1.2, v * 6.5 + ny * 0.9, 5);
+        const craters = fbm(nx * 7.2 + 5.4, v * 16.0 + ny * 2.1, 4);
+        const ridge = Math.abs(craters - 0.52) < 0.035 ? 22 : 0;
+        const basin = base < 0.43 ? 0.84 : 1.0;
+        const val = (105 + base * 78 + craters * 24 + ridge) * basin;
+        return [val * 1.02, val * 0.98, val * 0.93, 255];
+      }),
+
+    "venus.jpg": () =>
+      generateTexture(W, H, (u, v, _lat, nx, ny) => {
+        const swirl = fbm(nx * 1.7 + 3.1, v * 5.5 + ny * 0.6, 5);
+        const chevron =
+          Math.sin((u + Math.abs(v - 0.5) * 0.85) * Math.PI * 4 + swirl * 4.2) *
+            0.5 +
+          0.5;
+        const band = swirl * 0.65 + chevron * 0.35;
+        return [
+          198 + band * 46,
+          152 + band * 52,
+          82 + band * 48,
+          255,
+        ];
+      }),
+
     "earth.jpg": () =>
       generateTexture(W, H, (_u, v, lat, nx, ny) => {
         const absLat = Math.abs(lat) / (Math.PI * 0.5);
-        const cont = fbm(nx * 1.35, v * 4.2 + ny * 0.45, 5);
-        // Polar ice caps
+        const cont = earthContinentValue(v, nx, ny);
         if (absLat > 0.82 - cont * 0.08) {
           return [235, 244, 252, 255];
         }
-        // Continents vs Oceans
         if (cont > 0.51) {
           const elev = (cont - 0.51) / 0.49;
           const desert = Math.max(0, 1 - Math.abs(absLat - 0.28) * 4.5);
-          const r = 46 + desert * 125 + elev * 55;
-          const g = 112 + desert * 45 + elev * 30;
-          const b = 48 + desert * 20 + elev * 25;
+          const r = 42 + desert * 125 + elev * 55;
+          const g = 108 + desert * 45 + elev * 32;
+          const b = 46 + desert * 22 + elev * 24;
           return [r, g, b, 255];
         }
         const depth = cont / 0.51;
         return [
-          12 + depth * 24,
-          48 + depth * 64,
-          118 + depth * 82,
+          10 + depth * 22,
+          44 + depth * 60,
+          112 + depth * 84,
           255,
         ];
       }),
+
+    "earth-night.jpg": () =>
+      generateTexture(W, H, (_u, v, lat, nx, ny) => {
+        const absLat = Math.abs(lat) / (Math.PI * 0.5);
+        const cont = earthContinentValue(v, nx, ny);
+        const isLand = cont > 0.51 && absLat < 0.72;
+        if (!isLand) {
+          return [3, 6, 16, 255];
+        }
+        const coastProximity = Math.max(0, 1 - (cont - 0.51) * 5.2);
+        const cityCluster = fbm(nx * 6.5 + 2.3, v * 18.0 + ny * 2.4, 4);
+        const fineGrid = fbm(nx * 18.0 + 7.1, v * 44.0 + ny * 5.2, 3);
+        const hub = Math.max(
+          0,
+          (cityCluster - 0.53) * 3.4 + coastProximity * 0.28
+        );
+        const spark = Math.pow(Math.max(0, fineGrid - 0.48) * 2.2, 2.0) * hub;
+        const intensity = Math.min(1, spark * 2.8);
+        return [
+          8 + intensity * 247,
+          10 + intensity * 195,
+          20 + intensity * 95,
+          255,
+        ];
+      }),
+
     "earth-clouds.jpg": () =>
       generateTexture(W, H, (_u, v, _lat, nx, ny) => {
-        const swirl = fbm(nx * 2.0 + 1.7, v * 6.0 + ny * 0.8, 5);
-        const alpha = Math.max(0, Math.min(1, (swirl - 0.44) * 2.6));
+        const swirl = fbm(nx * 2.1 + 1.7, v * 6.4 + ny * 0.85, 5);
+        const alpha = Math.max(0, Math.min(1, (swirl - 0.45) * 2.5));
         const val = Math.round(alpha * 255);
         return [val, val, val, 255];
       }),
-    "mars.jpg": () =>
-      generateTexture(W, H, (_u, v, lat, nx, ny) => {
-        const absLat = Math.abs(lat) / (Math.PI * 0.5);
-        if (absLat > 0.88) return [236, 226, 218, 255];
-        const n = fbm(nx * 1.8, v * 5.2 + ny * 0.5, 5);
-        return [
-          168 + n * 68,
-          76 + n * 48,
-          44 + n * 30,
-          255,
-        ];
-      }),
-    "jupiter.jpg": () =>
-      generateTexture(W, H, (u, v, _lat, nx, ny) => {
-        const turb = fbm(nx * 1.5, v * 8.0 + ny * 0.4, 5);
-        const bands = Math.sin(v * 28 + turb * 3.2) * 0.5 + 0.5;
-        // Great Red Spot near southern tropical zone
-        const spotDist = Math.hypot((u - 0.58) * 2.4, (v - 0.64) * 4.2);
-        const spot = Math.max(0, 1 - spotDist * 3.2);
-        const r = 175 + bands * 58 + spot * 35;
-        const g = 138 + bands * 54 - spot * 35;
-        const b = 104 + bands * 46 - spot * 42;
-        return [r, g, b, 255];
-      }),
+
     "moon.jpg": () =>
       generateTexture(W, H, (_u, v, _lat, nx, ny) => {
         const n = fbm(nx * 2.4, v * 6.5 + ny * 0.7, 5);
-        const maria = n < 0.46 ? 0.78 : 1.0;
-        const g = (118 + n * 95) * maria;
+        const fine = fbm(nx * 7.5 + 1.9, v * 16.0 + ny * 1.4, 4);
+        const maria = n < 0.46 ? 0.74 : 1.0;
+        const g = (112 + n * 88 + fine * 22) * maria;
         return [g, g * 0.99, g * 0.97, 255];
+      }),
+
+    "mars.jpg": () =>
+      generateTexture(W, H, (_u, v, lat, nx, ny) => {
+        const absLat = Math.abs(lat) / (Math.PI * 0.5);
+        if (absLat > 0.89) return [236, 226, 218, 255];
+        const n = fbm(nx * 1.8, v * 5.2 + ny * 0.5, 5);
+        const darkBasalt = n < 0.42 ? 0.76 : 1.0;
+        return [
+          (168 + n * 68) * darkBasalt,
+          (76 + n * 46) * darkBasalt,
+          (44 + n * 28) * darkBasalt,
+          255,
+        ];
+      }),
+
+    "jupiter.jpg": () =>
+      generateTexture(W, H, (u, v, _lat, nx, ny) => {
+        const turb = fbm(nx * 1.6, v * 8.5 + ny * 0.4, 5);
+        const bands = Math.sin(v * 30 + turb * 3.2) * 0.5 + 0.5;
+        const fineZone = Math.cos(v * 68 + turb * 5.0) * 0.5 + 0.5;
+        const spotDist = Math.hypot((u - 0.58) * 2.4, (v - 0.64) * 4.2);
+        const spot = Math.max(0, 1 - spotDist * 3.2);
+        const r = 168 + bands * 54 + fineZone * 14 + spot * 42;
+        const g = 132 + bands * 50 + fineZone * 10 - spot * 36;
+        const b = 98 + bands * 44 + fineZone * 8 - spot * 42;
+        return [r, g, b, 255];
+      }),
+
+    "saturn.jpg": () =>
+      generateTexture(W, H, (_u, v, _lat, nx, ny) => {
+        const turb = fbm(nx * 1.2 + 4.2, v * 6.0 + ny * 0.25, 4);
+        const bands = Math.sin(v * 26 + turb * 1.8) * 0.5 + 0.5;
+        const subtle = Math.cos(v * 52 + turb * 2.2) * 0.5 + 0.5;
+        const mix = bands * 0.75 + subtle * 0.25;
+        return [
+          196 + mix * 42,
+          172 + mix * 38,
+          126 + mix * 32,
+          255,
+        ];
+      }),
+
+    "saturn-ring.png": () =>
+      generateTexture(1024, 64, (u) => {
+        // u = 0 is inner ring radius, u = 1 is outer ring radius
+        if (u < 0.04 || u > 0.97) {
+          return [0, 0, 0, 0];
+        }
+        // Cassini division gap around 0.63..0.68
+        const cassini =
+          u > 0.625 && u < 0.68
+            ? 0.08 + 0.92 * Math.pow(Math.abs(u - 0.6525) / 0.0275, 2.2)
+            : 1.0;
+        // Encke gap around 0.86..0.875
+        const encke = u > 0.86 && u < 0.875 ? 0.2 : 1.0;
+
+        // Inner C ring (0.04..0.24) is faint & translucent
+        let density = 1.0;
+        if (u < 0.24) {
+          density = ((u - 0.04) / 0.2) * 0.42;
+        } else if (u < 0.625) {
+          // Bright B ring
+          density = 0.72 + Math.sin(u * 190) * 0.14 + Math.cos(u * 430) * 0.08;
+        } else {
+          // Outer A ring
+          density = 0.54 + Math.sin(u * 150) * 0.1;
+        }
+
+        const edgeFade =
+          Math.min(1, (u - 0.04) / 0.05) * Math.min(1, (0.97 - u) / 0.04);
+        const alpha = Math.max(
+          0,
+          Math.min(1, density * cassini * encke * edgeFade)
+        );
+        const ringlets = Math.sin(u * 320) * 14 + Math.cos(u * 780) * 8;
+        return [
+          216 + ringlets,
+          194 + ringlets * 0.9,
+          156 + ringlets * 0.7,
+          alpha * 235,
+        ];
+      }),
+
+    "uranus.jpg": () =>
+      generateTexture(W, H, (_u, v, _lat, nx, ny) => {
+        const turb = fbm(nx * 1.1 + 2.0, v * 4.5 + ny * 0.2, 4);
+        const band = Math.sin(v * 14 + turb * 1.1) * 0.5 + 0.5;
+        return [
+          145 + band * 28,
+          212 + band * 24,
+          224 + band * 20,
+          255,
+        ];
+      }),
+
+    "neptune.jpg": () =>
+      generateTexture(W, H, (u, v, _lat, nx, ny) => {
+        const turb = fbm(nx * 1.8 + 5.1, v * 7.0 + ny * 0.4, 5);
+        const band = Math.sin(v * 20 + turb * 2.2) * 0.5 + 0.5;
+        const streak = Math.max(0, Math.sin(v * 48 + u * 12 + turb * 6) - 0.78);
+        const darkSpotDist = Math.hypot((u - 0.42) * 2.8, (v - 0.58) * 4.5);
+        const darkSpot = Math.max(0, 1 - darkSpotDist * 3.5);
+        return [
+          38 + band * 32 + streak * 180 - darkSpot * 18,
+          82 + band * 54 + streak * 160 - darkSpot * 28,
+          178 + band * 58 + streak * 65 - darkSpot * 24,
+          255,
+        ];
+      }),
+
+    "milky-way.jpg": () =>
+      generateTexture(W, H, (u, v, _lat, nx, ny, x, y) => {
+        // Galactic plane tilted gently across the sky
+        const planeOffset =
+          v - (0.5 + Math.sin(u * Math.PI * 2) * 0.18);
+        const band = Math.exp(-(planeOffset * planeOffset) / 0.018);
+        const dust = fbm(nx * 2.8 + 1.4, v * 7.5 + ny * 1.2, 5);
+        const dustLane =
+          Math.exp(-(planeOffset * planeOffset) / 0.0035) *
+          Math.max(0, dust - 0.38) *
+          1.45;
+        const glow = Math.max(0, band * (0.45 + dust * 0.75) - dustLane * 0.55);
+
+        // Pinpoint stars
+        const starHash = hash2(x * 1.37, y * 2.91);
+        const star =
+          starHash > 0.9965
+            ? (starHash - 0.9965) / 0.0035
+            : starHash > 0.992 && band > 0.35
+            ? ((starHash - 0.992) / 0.008) * 0.65
+            : 0;
+
+        const r = 6 + glow * 62 + star * 235;
+        const g = 8 + glow * 58 + star * 230;
+        const b = 18 + glow * 92 + star * 245;
+        return [r, g, b, 255];
       }),
   };
 
   for (const [name, builder] of Object.entries(files)) {
     const filePath = path.join(TEXTURES_DIR, name);
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, builder());
-    }
+    fs.writeFileSync(filePath, builder());
   }
 }
 
 main();
-

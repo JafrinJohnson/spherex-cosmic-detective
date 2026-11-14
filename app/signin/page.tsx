@@ -9,7 +9,6 @@ import {
   Circle,
   Eye,
   EyeOff,
-  Sparkles,
   UserCheck,
 } from "lucide-react";
 import { UserRole, isUsernameTaken } from "@/lib/auth";
@@ -235,16 +234,11 @@ function SigninPageInner() {
         {/* Left / Top on mobile: 3D Rotating Earth + Tagline */}
         <div className="lg:col-span-5">
           <div className="glass relative overflow-hidden rounded-3xl border border-white/15 p-6 sm:p-8 text-center">
-            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-[#A2D2FF]/35 bg-[#A2D2FF]/12 px-3.5 py-1 text-xs font-semibold text-[#A2D2FF]">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              NASA SPHEREx Sky Patrol
-            </div>
-
             <div className="relative mx-auto my-3 h-56 w-full sm:h-72 lg:h-80">
               <SigninEarthScene />
             </div>
 
-            <h1 className="font-display text-2xl font-bold tracking-tight text-[#EDEBFF] sm:text-3xl">
+            <h1 className="font-display text-2xl font-medium tracking-tight text-[#EDEBFF] sm:text-3xl">
               Join the detectives
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#CFCBEA]">
@@ -324,7 +318,7 @@ function SigninPageInner() {
                 <div>
                   <label
                     htmlFor="signin-username"
-                    className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA]"
+                    className="block text-xs font-medium text-[#CFCBEA]"
                   >
                     Username
                   </label>
@@ -347,7 +341,7 @@ function SigninPageInner() {
                 <div>
                   <label
                     htmlFor="signin-password"
-                    className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA]"
+                    className="block text-xs font-medium text-[#CFCBEA]"
                   >
                     Password
                   </label>
@@ -442,7 +436,7 @@ function SigninPageInner() {
                   <div>
                     <label
                       htmlFor="signup-name"
-                      className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA]"
+                      className="block text-xs font-medium text-[#CFCBEA]"
                     >
                       Full name
                     </label>
@@ -475,7 +469,7 @@ function SigninPageInner() {
                   <div>
                     <label
                       htmlFor="signup-username"
-                      className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA]"
+                      className="block text-xs font-medium text-[#CFCBEA]"
                     >
                       Username
                     </label>
@@ -524,7 +518,7 @@ function SigninPageInner() {
                   <div>
                     <label
                       htmlFor="signup-password"
-                      className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA]"
+                      className="block text-xs font-medium text-[#CFCBEA]"
                     >
                       Password
                     </label>
@@ -576,7 +570,7 @@ function SigninPageInner() {
                   <div>
                     <label
                       htmlFor="signup-confirm-password"
-                      className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA]"
+                      className="block text-xs font-medium text-[#CFCBEA]"
                     >
                       Confirm password
                     </label>
@@ -680,7 +674,7 @@ function SigninPageInner() {
 
                 {/* Role Picker (3 large selectable glass cards) */}
                 <div>
-                  <span className="block text-xs font-semibold uppercase tracking-wider text-[#CFCBEA] mb-2">
+                  <span className="block text-xs font-medium text-[#CFCBEA] mb-2">
                     Pick your role
                   </span>
                   <RolePickerCards

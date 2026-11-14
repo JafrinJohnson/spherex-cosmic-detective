@@ -4,11 +4,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import confetti from "canvas-confetti";
 import {
-  GraduationCap,
   ChevronDown,
   ChevronUp,
   RotateCcw,
-  Sparkles,
   Keyboard,
   Crosshair,
   Columns2,
@@ -25,7 +23,6 @@ import {
   type QuizQuestionType,
 } from "@/components/training/QuizCard";
 import { PageTransition } from "@/components/PageTransition";
-import { SampleDataBadge } from "@/components/SampleDataBadge";
 import { useSound } from "@/components/SoundProvider";
 import { useAuth } from "@/context/AuthProvider";
 import { getTrainingStorageKey } from "@/lib/auth";
@@ -619,13 +616,9 @@ export default function TrainingPage() {
       {/* Top Header, Game Mode Glass Tabs & Collapsible "How to play" + "Reset progress" */}
       <section className="glass p-6 sm:p-8 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider bg-pastel-mint/15 border border-pastel-mint/35 text-pastel-mint">
-              <GraduationCap className="w-4 h-4" />
-              <span>Training Mode</span>
-            </span>
-            <SampleDataBadge source="placeholder" />
-          </div>
+          <h1 className="font-heading text-2xl sm:text-3xl font-medium text-cosmic-text">
+            Training
+          </h1>
 
           {/* Game Tabs: "Spot the Mover" | "Compare the Skies" */}
           <div
@@ -819,19 +812,19 @@ export default function TrainingPage() {
           <div className="glass p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/15">
-                <div className="text-xs font-mono uppercase tracking-wider text-cosmic-muted">
+                <div className="text-xs text-cosmic-muted">
                   Score
                 </div>
-                <div className="font-heading text-3xl sm:text-4xl font-bold text-[#FFD166] mt-1">
+                <div className="font-mono text-3xl sm:text-4xl font-medium text-[#FFD166] mt-1">
                   {animatedScore}
                 </div>
               </div>
 
               <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/15">
-                <div className="text-xs font-mono uppercase tracking-wider text-cosmic-muted">
+                <div className="text-xs text-cosmic-muted">
                   Movers found
                 </div>
-                <div className="font-heading text-3xl sm:text-4xl font-bold text-[#B5EAD7] mt-1">
+                <div className="font-mono text-3xl sm:text-4xl font-medium text-[#B5EAD7] mt-1">
                   {animatedFinds}
                 </div>
               </div>
@@ -840,15 +833,15 @@ export default function TrainingPage() {
             <div className="grid grid-cols-2 gap-4 pt-1">
               <div className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
                 <span className="text-cosmic-muted">Streak</span>
-                <span className="font-mono font-bold text-pastel-lavender">
+                <span className="font-mono font-medium text-pastel-lavender">
                   {streak} in a row
                 </span>
               </div>
 
               <div className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
                 <span className="text-cosmic-muted">Best time</span>
-                <span className="font-mono font-bold text-pastel-sky">
-                  {bestTimeSec !== null ? `${bestTimeSec.toFixed(1)}s` : "—"}
+                <span className="font-mono font-medium text-pastel-sky">
+                  {bestTimeSec !== null ? `${bestTimeSec.toFixed(1)}s` : "None"}
                 </span>
               </div>
             </div>
@@ -864,11 +857,11 @@ export default function TrainingPage() {
           {/* 4. BADGES CARD */}
           <div className="glass p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-widest text-pastel-lavender">
-                YOUR BADGES
-              </span>
+              <h2 className="font-heading text-lg font-medium text-cosmic-text">
+                Your badges
+              </h2>
               <span className="text-xs font-mono text-cosmic-muted">
-                {unlockedBadges.length} / {BADGE_DEFINITIONS.length} Unlocked
+                {unlockedBadges.length} / {BADGE_DEFINITIONS.length} unlocked
               </span>
             </div>
 
@@ -933,11 +926,7 @@ export default function TrainingPage() {
               </div>
 
               <div className="space-y-1.5">
-                <div className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-widest text-pastel-peach">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Achievement Unlocked</span>
-                </div>
-                <h3 className="font-heading text-2xl sm:text-3xl font-bold text-gradient-headline">
+                <h3 className="font-heading text-2xl sm:text-3xl font-medium text-cosmic-text">
                   New badge: {newlyUnlockedBadge.name}
                 </h3>
                 <p className="text-sm text-cosmic-muted">
@@ -951,7 +940,7 @@ export default function TrainingPage() {
                   playSound("click");
                   setNewlyUnlockedBadge(null);
                 }}
-                className="min-h-[44px] px-8 py-3 rounded-full font-heading font-semibold text-xs uppercase tracking-wider bg-infrared-gradient text-[#0B0B1E] shadow-infrared-glow"
+                className="min-h-[44px] px-8 py-3 rounded-full font-heading font-medium text-sm bg-infrared-gradient text-[#07090F] shadow-infrared-glow"
               >
                 Continue Investigating
               </button>

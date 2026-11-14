@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --bg-space-start: #0B0B1E;
-  --bg-space-mid: #1A1040;
-  --bg-space-end: #0D1B2A;
+  --bg-space-start: #07090F;
+  --bg-space-mid: #0D121F;
+  --bg-space-end: #090D16;
 
   --accent-lavender: #C3B1E1;
   --accent-peach: #FFB5A7;
@@ -13,19 +13,20 @@
   --accent-sky: #A2D2FF;
   --accent-pink: #FFC8DD;
 
-  --ir-start: #FF8A65;
+  --ir-start: #F5A623;
   --ir-end: #FFD166;
 
-  --text-main: #EDEBFF;
-  --text-muted: #CFCBEA;
+  --text-main: #F3F2EA;
+  --text-muted: #B8B6C8;
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
+    font-family: "Sora Variable", "Sora", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
   }
 
-  html,
   body {
     background: linear-gradient(
       145deg,
@@ -35,40 +36,59 @@
     );
     background-attachment: fixed;
     color: var(--text-main);
-    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    font-family: "Sora Variable", "Sora", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
     min-height: 100vh;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
   }
 
+  @media (min-width: 640px) {
+    body {
+      font-size: 18px;
+    }
+  }
+
   h1,
   h2,
   h3,
-  h4,
-  h5,
-  h6 {
-    font-family: var(--font-space-grotesk), system-ui, -apple-system, sans-serif;
-    letter-spacing: -0.02em;
+  .font-heading,
+  .font-display {
+    font-family: "Cinzel", Georgia, serif;
+    letter-spacing: 0.02em;
+  }
+
+  h1 {
+    font-size: clamp(3rem, 7vw, 6.5rem);
+    line-height: 1.06;
+  }
+
+  h2 {
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    line-height: 1.15;
+  }
+
+  small {
+    font-size: 14px;
   }
 }
 
 @layer components {
   .glass {
-    @apply bg-white/[0.08] backdrop-blur-xl border border-white/[0.15] rounded-3xl transition-all duration-300;
+    @apply bg-white/[0.06] backdrop-blur-xl border border-white/[0.12] rounded-2xl transition-all duration-300;
   }
 
   .glass:hover {
-    box-shadow: 0 10px 40px -6px rgba(195, 177, 225, 0.22),
-      0 0 28px -4px rgba(162, 210, 255, 0.16);
-    border-color: rgba(255, 255, 255, 0.26);
+    box-shadow: 0 10px 36px -6px rgba(0, 0, 0, 0.45);
+    border-color: rgba(255, 255, 255, 0.22);
   }
 
   .text-gradient-headline {
     background: linear-gradient(
       95deg,
-      #EDEBFF 0%,
-      var(--accent-lavender) 32%,
-      var(--accent-peach) 68%,
+      #F3F2EA 0%,
+      #E8DFCA 45%,
       var(--ir-end) 100%
     );
     -webkit-background-clip: text;
@@ -103,37 +123,37 @@
 
 .starfield-layer::before {
   background-image:
-    radial-gradient(1.5px 1.5px at 24px 36px, rgba(237, 235, 255, 0.75), transparent),
-    radial-gradient(1px 1px at 90px 140px, rgba(195, 177, 225, 0.7), transparent),
-    radial-gradient(1.5px 1.5px at 180px 64px, rgba(255, 181, 167, 0.65), transparent),
-    radial-gradient(1px 1px at 260px 210px, rgba(162, 210, 255, 0.75), transparent),
-    radial-gradient(2px 2px at 340px 110px, rgba(255, 209, 102, 0.55), transparent),
-    radial-gradient(1px 1px at 410px 280px, rgba(237, 235, 255, 0.65), transparent),
-    radial-gradient(1.5px 1.5px at 70px 310px, rgba(181, 234, 215, 0.6), transparent);
+    radial-gradient(1.5px 1.5px at 24px 36px, rgba(237, 235, 255, 0.65), transparent),
+    radial-gradient(1px 1px at 90px 140px, rgba(195, 177, 225, 0.55), transparent),
+    radial-gradient(1.5px 1.5px at 180px 64px, rgba(255, 181, 167, 0.5), transparent),
+    radial-gradient(1px 1px at 260px 210px, rgba(162, 210, 255, 0.6), transparent),
+    radial-gradient(2px 2px at 340px 110px, rgba(255, 209, 102, 0.45), transparent),
+    radial-gradient(1px 1px at 410px 280px, rgba(237, 235, 255, 0.55), transparent),
+    radial-gradient(1.5px 1.5px at 70px 310px, rgba(181, 234, 215, 0.5), transparent);
   background-size: 460px 360px;
   animation: twinkleSlow 9s ease-in-out infinite alternate;
 }
 
 .starfield-layer::after {
   background-image:
-    radial-gradient(1px 1px at 55px 85px, rgba(255, 200, 221, 0.65), transparent),
-    radial-gradient(1.5px 1.5px at 145px 230px, rgba(237, 235, 255, 0.6), transparent),
-    radial-gradient(1px 1px at 295px 45px, rgba(162, 210, 255, 0.7), transparent),
-    radial-gradient(2px 2px at 390px 195px, rgba(195, 177, 225, 0.6), transparent),
-    radial-gradient(1px 1px at 220px 340px, rgba(255, 138, 101, 0.55), transparent);
+    radial-gradient(1px 1px at 55px 85px, rgba(255, 200, 221, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 145px 230px, rgba(237, 235, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 295px 45px, rgba(162, 210, 255, 0.55), transparent),
+    radial-gradient(2px 2px at 390px 195px, rgba(195, 177, 225, 0.5), transparent),
+    radial-gradient(1px 1px at 220px 340px, rgba(255, 138, 101, 0.45), transparent);
   background-size: 520px 410px;
   animation: twinkleSlow 13s ease-in-out infinite alternate-reverse;
 }
 
 @keyframes twinkleSlow {
   0% {
-    opacity: 0.35;
+    opacity: 0.3;
   }
   50% {
-    opacity: 0.78;
+    opacity: 0.68;
   }
   100% {
-    opacity: 0.45;
+    opacity: 0.38;
   }
 }
 
@@ -186,7 +206,6 @@
   }
   .starfield-layer::before,
   .starfield-layer::after {
-    opacity: 0.55;
+    opacity: 0.5;
   }
 }
-

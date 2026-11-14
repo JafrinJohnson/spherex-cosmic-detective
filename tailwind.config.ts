@@ -1,5 +1,14 @@
 import type { Config } from "tailwindcss";
 
+const CINZEL_STACK = ['"Cinzel"', "Georgia", "serif"];
+const SORA_STACK = [
+  '"Sora Variable"',
+  '"Sora"',
+  "system-ui",
+  "-apple-system",
+  "sans-serif",
+];
+
 const config: Config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -31,8 +40,25 @@ const config: Config = {
         },
       },
       fontFamily: {
-        heading: ["var(--font-space-grotesk)", "sans-serif"],
-        sans: ["var(--font-inter)", "sans-serif"],
+        sans: SORA_STACK,
+        serif: CINZEL_STACK,
+        heading: CINZEL_STACK,
+        display: CINZEL_STACK,
+        mono: [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          '"Liberation Mono"',
+          '"Courier New"',
+          "monospace",
+        ],
+      },
+      fontSize: {
+        xs: ["0.875rem", { lineHeight: "1.45" }],
+        sm: ["0.9375rem", { lineHeight: "1.5" }],
+        base: ["1.125rem", { lineHeight: "1.6" }],
       },
       backgroundImage: {
         "deep-space":
@@ -43,7 +69,8 @@ const config: Config = {
           "linear-gradient(90deg, var(--accent-lavender) 0%, var(--accent-peach) 50%, var(--accent-sky) 100%)",
       },
       boxShadow: {
-        "glass-glow": "0 8px 32px -4px rgba(195, 177, 225, 0.16), 0 0 24px -6px rgba(162, 210, 255, 0.18)",
+        "glass-glow":
+          "0 8px 32px -4px rgba(195, 177, 225, 0.16), 0 0 24px -6px rgba(162, 210, 255, 0.18)",
         "infrared-glow": "0 8px 30px -4px rgba(255, 138, 101, 0.28)",
       },
     },
@@ -52,4 +79,3 @@ const config: Config = {
 };
 
 export default config;
-

@@ -12,10 +12,8 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from "recharts";
-import { Activity } from "lucide-react";
 import { getSpectrum } from "@/lib/api";
 import type { SpectrumPoint } from "@/types";
-import { SampleDataBadge } from "@/components/SampleDataBadge";
 
 interface SpectrumChartProps {
   targetId: string;
@@ -61,7 +59,6 @@ function CustomGlassTooltip({ active, payload }: CustomTooltipProps) {
 
 export function SpectrumChart({
   targetId,
-  source = "placeholder",
 }: SpectrumChartProps) {
   const [rawPoints, setRawPoints] = useState<SpectrumPoint[]>([]);
 
@@ -88,18 +85,13 @@ export function SpectrumChart({
   return (
     <div className="glass p-6 sm:p-8 space-y-5">
       {/* Header Row */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-pastel-lavender">
-            <Activity className="w-3.5 h-3.5 text-pastel-peach" />
-            <span>Cosmic Fingerprint — 102 Infrared Channels</span>
-          </div>
-          <h2 className="font-heading text-xl sm:text-2xl font-bold text-cosmic-text">
-            Infrared Spectrum (0.75 – 5.0 µm)
-          </h2>
-        </div>
-
-        <SampleDataBadge source={source} />
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="font-heading text-xl sm:text-2xl font-medium text-cosmic-text">
+          Spectrum
+        </h2>
+        <span className="text-xs font-mono text-cosmic-muted">
+          102 channels · 0.75 to 5.0 µm
+        </span>
       </div>
 
       {/* Band Legend Strip (B1–B6) */}
@@ -217,9 +209,8 @@ export function SpectrumChart({
       </div>
 
       {/* Caption */}
-      <p className="text-xs sm:text-sm text-cosmic-muted leading-relaxed">
-        Every material absorbs certain infrared colours. Dips in this line show
-        what an object is made of.
+      <p className="text-xs sm:text-sm text-cosmic-muted">
+        Dips in the curve show which molecules absorb infrared light.
       </p>
     </div>
   );

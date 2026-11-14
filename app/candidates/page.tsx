@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  Crosshair,
   ArrowUpRight,
   Trash2,
   Download,
@@ -278,12 +277,11 @@ export default function CandidatesPage() {
       {/* Page Header */}
       <header className="glass p-7 sm:p-10 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider bg-pastel-peach/15 border border-pastel-peach/35 text-pastel-peach">
-            <Crosshair className="w-3.5 h-3.5" />
-            <span>Citizen Science Detections</span>
-          </span>
+          <h1 className="font-heading text-3xl sm:text-5xl font-medium text-cosmic-text">
+            Candidates Board
+          </h1>
 
-          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono font-semibold bg-white/[0.08] border border-white/15 text-cosmic-text">
+          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono bg-white/[0.08] border border-white/15 text-cosmic-text">
             <Sparkles className="w-3.5 h-3.5 text-pastel-lavender" />
             <span>
               {candidates.length}{" "}
@@ -292,15 +290,9 @@ export default function CandidatesPage() {
           </span>
         </div>
 
-        <div className="space-y-2 max-w-2xl">
-          <h1 className="font-heading text-3xl sm:text-5xl font-bold text-gradient-headline">
-            Candidates Board
-          </h1>
-          <p className="text-cosmic-muted text-base sm:text-lg leading-relaxed">
-            Objects detectives have marked as interesting. Each one is a lead
-            worth a second look.
-          </p>
-        </div>
+        <p className="text-cosmic-muted text-base sm:text-lg max-w-2xl">
+          Objects detectives have marked as interesting.
+        </p>
       </header>
 
       {/* Educator Role Classroom Card */}

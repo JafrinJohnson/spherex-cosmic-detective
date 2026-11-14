@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Cosmic Detective — Explore NASA SPHEREx infrared sky images over time";
+export const alt = "Cosmic Detective: Explore infrared sky images over time";
 export const size = {
   width: 1200,
   height: 630,
@@ -20,12 +20,11 @@ export default function OpenGraphImage() {
           justifyContent: "space-between",
           padding: "72px 84px",
           background:
-            "linear-gradient(135deg, #0B0B1E 0%, #1A1040 52%, #0D1B2A 100%)",
-          color: "#EDEBFF",
-          fontFamily: "sans-serif",
+            "linear-gradient(135deg, #07090F 0%, #0D121F 52%, #090D16 100%)",
+          color: "#F3F2EA",
+          fontFamily: '"Cinzel", Georgia, serif',
         }}
       >
-        {/* Left Text Column */}
         <div
           style={{
             display: "flex",
@@ -35,45 +34,27 @@ export default function OpenGraphImage() {
         >
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "8px 18px",
-              borderRadius: "999px",
-              background: "rgba(255, 181, 167, 0.14)",
-              border: "1px solid rgba(255, 181, 167, 0.45)",
-              color: "#FFB5A7",
-              fontSize: "20px",
-              letterSpacing: "2px",
-              textTransform: "uppercase",
-              marginBottom: "28px",
-            }}
-          >
-            NASA SPHEREx All-Sky Infrared Survey
-          </div>
-
-          <div
-            style={{
               fontSize: "74px",
-              fontWeight: 800,
+              fontWeight: 500,
               lineHeight: 1.06,
               letterSpacing: "-1px",
-              color: "#EDEBFF",
+              color: "#F3F2EA",
               marginBottom: "22px",
             }}
           >
-            COSMIC DETECTIVE
+            Cosmic Detective
           </div>
 
           <div
             style={{
               fontSize: "28px",
               lineHeight: 1.4,
-              color: "#CFCBEA",
+              color: "#B8B6C8",
               marginBottom: "32px",
             }}
           >
-            Compare real NASA SPHEREx infrared sky images over time and spot
-            hidden worlds that move.
+            Compare multi-epoch infrared sky images over time and spot hidden
+            worlds that move.
           </div>
 
           <div
@@ -84,15 +65,12 @@ export default function OpenGraphImage() {
               color: "#B5EAD7",
             }}
           >
-            <span>102 Infrared Colours</span>
+            <span>102 Infrared Bands</span>
             <span>·</span>
             <span>Whole Sky Every 6 Months</span>
-            <span>·</span>
-            <span>1 Billion+ Objects</span>
           </div>
         </div>
 
-        {/* Right Small Pastel Planet with Ring */}
         <div
           style={{
             display: "flex",
@@ -110,7 +88,7 @@ export default function OpenGraphImage() {
               borderRadius: "999px",
               background:
                 "radial-gradient(circle at 32% 28%, #FFB5A7 0%, #C3B1E1 52%, #4B3A8C 95%)",
-              boxShadow: "0 0 80px rgba(195, 177, 225, 0.45)",
+              boxShadow: "0 0 80px rgba(195, 177, 225, 0.35)",
               border: "2px solid rgba(255, 255, 255, 0.25)",
             }}
           />
@@ -132,4 +110,3 @@ export default function OpenGraphImage() {
     }
   );
 }
-

@@ -669,13 +669,13 @@ export function CompareSkies({
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="px-3 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-wider bg-pastel-lavender/20 border border-pastel-lavender/45 text-pastel-lavender">
+            <span className="px-3 py-1 rounded-full text-xs font-medium bg-pastel-lavender/20 border border-pastel-lavender/45 text-pastel-lavender">
               Level {level}
             </span>
 
             {/* Progress Chip */}
-            <span className="px-3.5 py-1 rounded-full text-xs font-mono font-semibold bg-pastel-mint/20 border border-pastel-mint/45 text-pastel-mint">
-              Changes found: {foundIds.length} / {roundData.changes.length}
+            <span className="px-3.5 py-1 rounded-full text-xs font-medium bg-pastel-mint/20 border border-pastel-mint/45 text-pastel-mint">
+              Changes found: <span className="font-mono">{foundIds.length} / {roundData.changes.length}</span>
             </span>
 
             {/* 3 Heart Lives (Inline SVG) */}
@@ -773,14 +773,14 @@ export function CompareSkies({
         {/* Visit 1 Canvas */}
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-pastel-sky">
+            <span className="text-xs font-medium text-pastel-sky">
               {blinkOverlayActive
                 ? blinkShowVisit2
-                  ? "Visit 2 (Blinking Overlay)"
-                  : "Visit 1 (Blinking Overlay)"
+                  ? "Visit 2 (Blinking overlay)"
+                  : "Visit 1 (Blinking overlay)"
                 : "Visit 1"}
             </span>
-            <span className="text-[11px] font-mono text-cosmic-muted">
+            <span className="text-[11px] text-cosmic-muted">
               First pass
             </span>
           </div>
@@ -800,11 +800,11 @@ export function CompareSkies({
         {/* Visit 2 Canvas */}
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-pastel-peach">
+            <span className="text-xs font-medium text-pastel-peach">
               Visit 2
             </span>
-            <span className="text-[11px] font-mono text-cosmic-muted">
-              Second pass · {roundData.changes.length}{" "}
+            <span className="text-[11px] text-cosmic-muted">
+              Second pass · <span className="font-mono">{roundData.changes.length}</span>{" "}
               {roundData.changes.length === 1 ? "change" : "changes"}
             </span>
           </div>

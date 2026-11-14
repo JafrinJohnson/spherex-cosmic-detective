@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import confetti from "canvas-confetti";
 import {
@@ -13,6 +14,8 @@ import {
   Compass,
   HelpCircle,
   Gamepad2,
+  Rocket,
+  Sparkles,
 } from "lucide-react";
 import { getTargets, getFrames } from "@/lib/api";
 import {
@@ -47,7 +50,8 @@ export type BadgeId =
   | "sharp-eye"
   | "quick-draw"
   | "variable-spotter"
-  | "change-finder";
+  | "change-finder"
+  | "voyager";
 
 interface BadgeDef {
   id: BadgeId;
@@ -98,6 +102,12 @@ const BADGE_DEFINITIONS: BadgeDef[] = [
     name: "Change Finder",
     requirement: "Complete 5 Compare rounds",
     gradient: "from-[#A2D2FF] to-[#B5EAD7]",
+  },
+  {
+    id: "voyager",
+    name: "Cosmic Voyager",
+    requirement: "Discover 14 solar bodies in Voyage",
+    gradient: "from-[#FFD166] to-[#B5EAD7]",
   },
 ];
 
@@ -199,6 +209,17 @@ function BadgeSvgIcon({ id }: { id: BadgeId }) {
           />
           <circle cx="6.75" cy="9.5" r="1.5" fill="#0B0B1E" />
           <circle cx="17.25" cy="14.5" r="1.5" fill="#0B0B1E" />
+        </svg>
+      );
+    case "voyager":
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6.05 11a22.35 22.35 0 0 1-3.95 2z"
+            stroke="#0B0B1E"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
         </svg>
       );
   }
@@ -876,6 +897,36 @@ export default function TrainingPage() {
       )}
 
       {user?.role === "educator" && <ClassroomCard />}
+
+      {/* Cosmic Voyage 3D Simulation Banner */}
+      <section
+        aria-label="Cosmic Voyage 3D Game"
+        className="glass rounded-3xl border border-[#FFD166]/40 bg-gradient-to-r from-[#FFD166]/15 via-white/[0.04] to-[#A2D2FF]/15 p-5 sm:p-6 shadow-xl relative overflow-hidden"
+      >
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative z-10">
+          <div className="space-y-1.5 max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#FFD166]/20 border border-[#FFD166]/40 text-xs font-bold text-[#FFD166] uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Interactive 3D Game</span>
+            </div>
+            <h2 className="font-heading text-xl sm:text-2xl font-bold text-[#EDEBFF]">
+              Cosmic Voyage: Solar System Recon
+            </h2>
+            <p className="text-xs sm:text-sm text-cosmic-muted leading-relaxed">
+              Pilot the SPHEREx Recon Scout across the Solar System! Fly in 3D past 14 celestial bodies, scan their infrared spectra, test your astronomical knowledge, and earn the Cosmic Voyager badge.
+            </p>
+          </div>
+
+          <Link
+            href="/voyage"
+            onClick={() => playSound("click")}
+            className="w-full sm:w-auto px-6 py-3 rounded-full bg-gradient-to-r from-pastel-mint via-pastel-sky to-pastel-peach text-cosmic-bg text-sm font-bold shadow-lg hover:shadow-pastel-mint/30 hover:scale-[1.02] transition-all inline-flex items-center justify-center gap-2.5 shrink-0"
+          >
+            <Rocket className="w-4 h-4" />
+            <span>Launch Voyage</span>
+          </Link>
+        </div>
+      </section>
 
       {/* TAB 1: MISSIONS */}
       {topTab === "missions" && (

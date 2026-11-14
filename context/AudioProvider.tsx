@@ -101,7 +101,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     let targetTrack: MusicTrackId = "ambient";
     if (pathname === "/") {
       targetTrack = "home";
-    } else if (pathname?.startsWith("/training")) {
+    } else if (
+      pathname?.startsWith("/training") ||
+      pathname?.startsWith("/voyage")
+    ) {
       targetTrack = "training";
     } else if (
       pathname?.startsWith("/explore") ||

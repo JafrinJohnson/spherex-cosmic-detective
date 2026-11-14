@@ -18,6 +18,7 @@ import {
   ChevronDown,
   UserPlus,
   LogIn,
+  Rocket,
 } from "lucide-react";
 import { useSound } from "@/components/SoundProvider";
 import { useAuth } from "@/context/AuthProvider";
@@ -42,6 +43,12 @@ const NAV_LINKS = [
     label: "Training",
     icon: GraduationCap,
     pillColor: "bg-[#B5EAD7]/25 border-[#B5EAD7]/50 text-[#EDEBFF]",
+  },
+  {
+    href: "/voyage",
+    label: "Voyage",
+    icon: Rocket,
+    pillColor: "bg-[#FFD166]/25 border-[#FFD166]/50 text-[#EDEBFF]",
   },
   {
     href: "/candidates",

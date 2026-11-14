@@ -10,6 +10,9 @@ import {
   Keyboard,
   Crosshair,
   Columns2,
+  Compass,
+  HelpCircle,
+  Gamepad2,
 } from "lucide-react";
 import { getTargets, getFrames } from "@/lib/api";
 import {
@@ -22,6 +25,8 @@ import {
   QuizCard,
   type QuizQuestionType,
 } from "@/components/training/QuizCard";
+import { MissionsTab } from "@/components/training/MissionsTab";
+import { SkyQuizTab } from "@/components/training/SkyQuizTab";
 import { PageTransition } from "@/components/PageTransition";
 import { useSound } from "@/components/SoundProvider";
 import { useAuth } from "@/context/AuthProvider";
@@ -29,9 +34,11 @@ import { getTrainingStorageKey } from "@/lib/auth";
 import { ClassroomCard } from "@/components/auth/ClassroomCard";
 
 const LEGACY_TRAINING_STORAGE_KEY = "cosmic-detective-training-progress-v1";
-const TRAINING_TAB_STORAGE_KEY = "cosmic-detective-training-tab-v1";
+const TRAINING_MODE_STORAGE_KEY = "cosmic-detective-training-mode-v2";
+const TRAINING_FREE_TAB_STORAGE_KEY = "cosmic-detective-training-tab-v1";
 
-export type TrainingGameTab = "spot" | "compare";
+export type TrainingTopTab = "missions" | "quiz" | "freeplay";
+export type FreePlayGameTab = "spot" | "compare";
 
 export type BadgeId =
   | "cadet"
@@ -235,6 +242,8 @@ interface StoredTrainingProgress {
   bestTimeSec: number | null;
   unlockedBadges: BadgeId[];
   roundNumber: number;
+  missionStars?: Record<number, 1 | 2 | 3>;
+  bestSkyQuizScore?: number;
 }
 
 export default function TrainingPage() {
@@ -243,8 +252,11 @@ export default function TrainingPage() {
   const { user, hydrated: authHydrated } = useAuth();
   const storageKey = getTrainingStorageKey(user);
 
-  // Active Game Tab ("spot" | "compare"), persisted in localStorage
-  const [activeTab, setActiveTab] = useState<TrainingGameTab>("spot");
+  // Top Tabs: "Missions" | "Sky Quiz" | "Free Play" (persisted in localStorage)
+  const [topTab, setTopTab] = useState<TrainingTopTab>("missions");
+
+  // Free play sub-tab: "Spot the Mover" | "Compare the Skies"
+  const [freeGameTab, setFreeGameTab] = useState<FreePlayGameTab>("spot");
 
   // Persisted progress states
   const [score, setScore] = useState<number>(0);
@@ -255,9 +267,11 @@ export default function TrainingPage() {
   const [bestTimeSec, setBestTimeSec] = useState<number | null>(null);
   const [unlockedBadges, setUnlockedBadges] = useState<BadgeId[]>(["cadet"]);
   const [roundNumber, setRoundNumber] = useState<number>(1);
+  const [missionStars, setMissionStars] = useState<Record<number, 1 | 2 | 3>>({});
+  const [bestSkyQuizScore, setBestSkyQuizScore] = useState<number>(0);
   const [hydrated, setHydrated] = useState<boolean>(false);
 
-  // Active round quiz & modal states
+  // Free play round quiz & modal states
   const [lastOutcome, setLastOutcome] = useState<RoundOutcome | null>(null);
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] =
     useState<BadgeDef | null>(null);
@@ -272,14 +286,25 @@ export default function TrainingPage() {
   const animatedScore = useAnimatedCount(score);
   const animatedFinds = useAnimatedCount(moversFound);
 
-  // Load saved progress for current user key & tab from localStorage
+  // Load saved progress for current user key & active tabs from localStorage
   useEffect(() => {
     if (!authHydrated) return;
     setHydrated(false);
     try {
-      const savedTab = window.localStorage.getItem(TRAINING_TAB_STORAGE_KEY);
-      if (savedTab === "spot" || savedTab === "compare") {
-        setActiveTab(savedTab);
+      const savedTopTab = window.localStorage.getItem(TRAINING_MODE_STORAGE_KEY);
+      if (
+        savedTopTab === "missions" ||
+        savedTopTab === "quiz" ||
+        savedTopTab === "freeplay"
+      ) {
+        setTopTab(savedTopTab);
+      }
+
+      const savedFreeTab = window.localStorage.getItem(
+        TRAINING_FREE_TAB_STORAGE_KEY
+      );
+      if (savedFreeTab === "spot" || savedFreeTab === "compare") {
+        setFreeGameTab(savedFreeTab);
       }
 
       let raw = window.localStorage.getItem(storageKey);
@@ -318,6 +343,16 @@ export default function TrainingPage() {
             ? parsed.roundNumber
             : 1
         );
+        setMissionStars(
+          parsed.missionStars && typeof parsed.missionStars === "object"
+            ? parsed.missionStars
+            : {}
+        );
+        setBestSkyQuizScore(
+          typeof parsed.bestSkyQuizScore === "number"
+            ? parsed.bestSkyQuizScore
+            : 0
+        );
       } else {
         setScore(0);
         setMoversFound(0);
@@ -326,6 +361,8 @@ export default function TrainingPage() {
         setBestTimeSec(null);
         setUnlockedBadges(["cadet"]);
         setRoundNumber(1);
+        setMissionStars({});
+        setBestSkyQuizScore(0);
       }
     } catch {
       // Ignore storage access errors
@@ -364,6 +401,8 @@ export default function TrainingPage() {
         bestTimeSec,
         unlockedBadges,
         roundNumber,
+        missionStars,
+        bestSkyQuizScore,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch {
@@ -380,16 +419,31 @@ export default function TrainingPage() {
     bestTimeSec,
     unlockedBadges,
     roundNumber,
+    missionStars,
+    bestSkyQuizScore,
   ]);
 
-  const handleSelectTab = useCallback(
-    (tab: TrainingGameTab) => {
+  const handleSelectTopTab = useCallback(
+    (tab: TrainingTopTab) => {
       playSound("click");
-      setActiveTab(tab);
+      setTopTab(tab);
       try {
-        window.localStorage.setItem(TRAINING_TAB_STORAGE_KEY, tab);
+        window.localStorage.setItem(TRAINING_MODE_STORAGE_KEY, tab);
       } catch {
-        // Ignore storage errors
+        // Ignore
+      }
+    },
+    [playSound]
+  );
+
+  const handleSelectFreeGameTab = useCallback(
+    (tab: FreePlayGameTab) => {
+      playSound("click");
+      setFreeGameTab(tab);
+      try {
+        window.localStorage.setItem(TRAINING_FREE_TAB_STORAGE_KEY, tab);
+      } catch {
+        // Ignore
       }
     },
     [playSound]
@@ -455,6 +509,36 @@ export default function TrainingPage() {
     [playSound]
   );
 
+  const handleAddPoints = useCallback(
+    (pts: number) => {
+      setScore((prev) => {
+        const nextScore = prev + pts;
+        checkAndUnlockBadges({
+          nextScore,
+          nextStreak: streak,
+          nextCompareRounds: compareRoundsCompleted,
+        });
+        return nextScore;
+      });
+    },
+    [streak, compareRoundsCompleted, checkAndUnlockBadges]
+  );
+
+  const handleSaveMissionStars = useCallback(
+    (missionId: number, stars: 1 | 2 | 3) => {
+      setMissionStars((prev) => ({
+        ...prev,
+        [missionId]: stars,
+      }));
+    },
+    []
+  );
+
+  const handleUpdateBestSkyQuizScore = useCallback((newBest: number) => {
+    setBestSkyQuizScore(newBest);
+  }, []);
+
+  // Free play hit handlers
   const handleHit = useCallback(
     (outcome: RoundOutcome) => {
       const nextScore = score + outcome.pointsEarned;
@@ -488,7 +572,6 @@ export default function TrainingPage() {
     ]
   );
 
-  // Compare the Skies handlers
   const handleCompareChangeFound = useCallback(
     (pts: number) => {
       const nextScore = score + pts;
@@ -572,6 +655,8 @@ export default function TrainingPage() {
     setBestTimeSec(null);
     setUnlockedBadges(["cadet"]);
     setRoundNumber(1);
+    setMissionStars({});
+    setBestSkyQuizScore(0);
     setLastOutcome(null);
     setResetModalOpen(false);
     try {
@@ -581,7 +666,7 @@ export default function TrainingPage() {
     }
   };
 
-  // Global keyboard shortcuts: Tab switches game tabs (when not in a modal), B = blink helper, H = hint, N = next sky
+  // Keyboard shortcut for free play mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -589,71 +674,89 @@ export default function TrainingPage() {
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (target?.closest('[role="dialog"]')) return;
 
-      if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        // Switch between "Spot the Mover" and "Compare the Skies" tabs
-        e.preventDefault();
-        handleSelectTab(activeTab === "spot" ? "compare" : "spot");
-      } else if (e.key === "b" || e.key === "B") {
-        if (activeTab === "compare") {
+      if (topTab === "freeplay") {
+        if (e.key === "b" || e.key === "B") {
+          if (freeGameTab === "compare") {
+            e.preventDefault();
+            setBlinkTriggerSeq((s) => s + 1);
+          }
+        } else if (e.key === "n" || e.key === "N") {
           e.preventDefault();
-          setBlinkTriggerSeq((s) => s + 1);
+          playSound("whoosh");
+          handleNextSky();
+        } else if (e.key === "h" || e.key === "H") {
+          e.preventDefault();
+          setHintTriggerSeq((s) => s + 1);
         }
-      } else if (e.key === "n" || e.key === "N") {
-        e.preventDefault();
-        playSound("whoosh");
-        handleNextSky();
-      } else if (e.key === "h" || e.key === "H") {
-        e.preventDefault();
-        setHintTriggerSeq((s) => s + 1);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab, handleSelectTab, playSound, handleNextSky]);
+  }, [topTab, freeGameTab, playSound, handleNextSky]);
 
   return (
     <PageTransition className="max-w-[1200px] mx-auto space-y-8 pb-16">
-      {/* Top Header, Game Mode Glass Tabs & Collapsible "How to play" + "Reset progress" */}
-      <section className="glass p-6 sm:p-8 space-y-5">
+      {/* Top Header & 3 Main Tabs: Missions | Sky Quiz | Free Play */}
+      <section className="glass p-6 sm:p-8 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="font-heading text-2xl sm:text-3xl font-medium text-cosmic-text">
-            Training
-          </h1>
+          <div>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-cosmic-text">
+              Training
+            </h1>
+            <p className="text-base text-cosmic-muted mt-1">
+              Master the science of spotting asteroids, comets, and moving worlds.
+            </p>
+          </div>
 
-          {/* Game Tabs: "Spot the Mover" | "Compare the Skies" */}
+          {/* MAIN TABS: Missions | Sky Quiz | Free Play */}
           <div
             role="tablist"
-            aria-label="Training game modes"
-            className="inline-flex items-center p-1 rounded-full bg-white/[0.05] border border-white/15"
+            aria-label="Training modes"
+            className="inline-flex items-center p-1.5 rounded-full bg-white/[0.05] border border-white/15"
           >
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === "spot"}
-              onClick={() => handleSelectTab("spot")}
+              aria-selected={topTab === "missions"}
+              onClick={() => handleSelectTopTab("missions")}
               className={`min-h-[44px] px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-mint ${
-                activeTab === "spot"
+                topTab === "missions"
                   ? "bg-pastel-mint/25 border border-pastel-mint/60 text-cosmic-text shadow-sm"
                   : "text-cosmic-muted hover:text-cosmic-text"
               }`}
             >
-              <Crosshair className="w-4 h-4 text-pastel-mint" />
-              <span>Spot the Mover</span>
+              <Compass className="w-4 h-4 text-pastel-mint" />
+              <span>Missions</span>
             </button>
 
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === "compare"}
-              onClick={() => handleSelectTab("compare")}
+              aria-selected={topTab === "quiz"}
+              onClick={() => handleSelectTopTab("quiz")}
+              className={`min-h-[44px] px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-peach ${
+                topTab === "quiz"
+                  ? "bg-pastel-peach/25 border border-pastel-peach/60 text-cosmic-text shadow-sm"
+                  : "text-cosmic-muted hover:text-cosmic-text"
+              }`}
+            >
+              <HelpCircle className="w-4 h-4 text-pastel-peach" />
+              <span>Sky Quiz</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={topTab === "freeplay"}
+              onClick={() => handleSelectTopTab("freeplay")}
               className={`min-h-[44px] px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-sky ${
-                activeTab === "compare"
+                topTab === "freeplay"
                   ? "bg-pastel-sky/25 border border-pastel-sky/60 text-cosmic-text shadow-sm"
                   : "text-cosmic-muted hover:text-cosmic-text"
               }`}
             >
-              <Columns2 className="w-4 h-4 text-pastel-sky" />
-              <span>Compare the Skies</span>
+              <Gamepad2 className="w-4 h-4 text-pastel-sky" />
+              <span>Free Play</span>
             </button>
           </div>
 
@@ -706,34 +809,31 @@ export default function TrainingPage() {
               <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-cosmic-muted">
                 <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
                   <div className="font-heading font-semibold text-pastel-mint">
-                    1. Spot the Mover
+                    1. Mission Academy
                   </div>
                   <p>
-                    Photo A and Photo B flip every 650 ms. Tap the one dot that
-                    jumps position to unlock its 3D cosmic reveal.
+                    Follow the 6 mission nodes in sequence. Learn the astronomical
+                    principles, find the candidate, and ace the 3-question quiz.
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
                   <div className="font-heading font-semibold text-pastel-peach">
-                    2. Compare the Skies
+                    2. 20-Second Sky Quiz
                   </div>
                   <p>
-                    Inspect Visit 1 and Visit 2 side by side to find every star
-                    that moved, brightened, appeared, or disappeared.
+                    Test your celestial knowledge under pressure with 10 random
+                    questions from our 30+ question astronomical archive.
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
                   <div className="font-heading font-semibold text-pastel-sky flex items-center gap-1.5">
                     <Keyboard className="w-3.5 h-3.5" />
-                    <span>3. Keyboard Shortcuts</span>
+                    <span>3. Controls & Keys</span>
                   </div>
                   <p>
-                    Press <code className="text-cosmic-text">Tab</code> to
-                    switch games, <code className="text-cosmic-text">B</code> to
-                    blink, <code className="text-cosmic-text">H</code> for a
-                    hint, <code className="text-cosmic-text">N</code> for next
-                    sky, and <code className="text-cosmic-text">1/2/3</code> for
-                    quizzes.
+                    Press <code className="text-cosmic-text">1/2/3/4</code> to
+                    select quiz answers and <code className="text-cosmic-text">Enter</code> to advance.
+                    In Free Play, use <code className="text-cosmic-text">B</code> to blink and <code className="text-cosmic-text">H</code> for a hint.
                   </p>
                 </div>
               </div>
@@ -776,131 +876,189 @@ export default function TrainingPage() {
 
       {user?.role === "educator" && <ClassroomCard />}
 
-      {/* MAIN TWO-COLUMN LAYOUT (Desktop two columns, Mobile stacked) */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Wide Column (7 cols): Active Game Card */}
-        <div className="lg:col-span-7 w-full">
-          {activeTab === "spot" ? (
-            <SpotTheMover
-              moversFound={moversFound}
-              roundNumber={roundNumber}
-              realSkyBundles={realSkyBundles}
-              onHit={handleHit}
-              onMiss={handleMiss}
-              onUseHint={() => handleDeductPoints(30)}
-              onNextSky={handleNextSky}
-              hintTriggerSeq={hintTriggerSeq}
-            />
-          ) : (
-            <CompareSkies
-              compareRoundsCompleted={compareRoundsCompleted}
-              roundNumber={roundNumber}
-              onChangeFound={handleCompareChangeFound}
-              onMiss={handleMiss}
-              onDeductPoints={handleDeductPoints}
-              onRoundComplete={handleCompareRoundComplete}
-              onNextRound={handleNextSky}
-              hintTriggerSeq={hintTriggerSeq}
-              blinkTriggerSeq={blinkTriggerSeq}
-            />
-          )}
-        </div>
+      {/* TAB 1: MISSIONS */}
+      {topTab === "missions" && (
+        <MissionsTab
+          missionStars={missionStars}
+          onSaveMissionStars={handleSaveMissionStars}
+          onAddPoints={handleAddPoints}
+          realSkyBundles={realSkyBundles}
+        />
+      )}
 
-        {/* Right Column (5 cols): Score Card + Quiz Card + Badges Card */}
-        <aside className="lg:col-span-5 w-full space-y-6">
-          {/* 2. SCORE CARD (Glass, 2-column grid) */}
-          <div className="glass p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/15">
-                <div className="text-xs text-cosmic-muted">
-                  Score
-                </div>
-                <div className="font-mono text-3xl sm:text-4xl font-medium text-[#FFD166] mt-1">
-                  {animatedScore}
-                </div>
-              </div>
+      {/* TAB 2: SKY QUIZ */}
+      {topTab === "quiz" && (
+        <SkyQuizTab
+          bestScore={bestSkyQuizScore}
+          onAddPoints={handleAddPoints}
+          onUpdateBestScore={handleUpdateBestSkyQuizScore}
+        />
+      )}
 
-              <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/15">
-                <div className="text-xs text-cosmic-muted">
-                  Movers found
-                </div>
-                <div className="font-mono text-3xl sm:text-4xl font-medium text-[#B5EAD7] mt-1">
-                  {animatedFinds}
-                </div>
-              </div>
-            </div>
+      {/* TAB 3: FREE PLAY */}
+      {topTab === "freeplay" && (
+        <div className="space-y-8">
+          {/* Sub-toggle: Spot the Mover | Compare the Skies */}
+          <div className="flex items-center justify-center">
+            <div
+              role="tablist"
+              aria-label="Free play game modes"
+              className="inline-flex items-center p-1 rounded-full bg-white/[0.05] border border-white/15"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={freeGameTab === "spot"}
+                onClick={() => handleSelectFreeGameTab("spot")}
+                className={`min-h-[44px] px-5 py-2 rounded-full text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-mint ${
+                  freeGameTab === "spot"
+                    ? "bg-pastel-mint/25 border border-pastel-mint/60 text-cosmic-text shadow-sm"
+                    : "text-cosmic-muted hover:text-cosmic-text"
+                }`}
+              >
+                <Crosshair className="w-4 h-4 text-pastel-mint" />
+                <span>Spot the Mover</span>
+              </button>
 
-            <div className="grid grid-cols-2 gap-4 pt-1">
-              <div className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
-                <span className="text-cosmic-muted">Streak</span>
-                <span className="font-mono font-medium text-pastel-lavender">
-                  {streak} in a row
-                </span>
-              </div>
-
-              <div className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
-                <span className="text-cosmic-muted">Best time</span>
-                <span className="font-mono font-medium text-pastel-sky">
-                  {bestTimeSec !== null ? `${bestTimeSec.toFixed(1)}s` : "None"}
-                </span>
-              </div>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={freeGameTab === "compare"}
+                onClick={() => handleSelectFreeGameTab("compare")}
+                className={`min-h-[44px] px-5 py-2 rounded-full text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-pastel-sky ${
+                  freeGameTab === "compare"
+                    ? "bg-pastel-sky/25 border border-pastel-sky/60 text-cosmic-text shadow-sm"
+                    : "text-cosmic-muted hover:text-cosmic-text"
+                }`}
+              >
+                <Columns2 className="w-4 h-4 text-pastel-sky" />
+                <span>Compare the Skies</span>
+              </button>
             </div>
           </div>
 
-          {/* 3. "WHAT DID YOU SEE?" QUIZ CARD */}
-          <QuizCard
-            lastOutcome={lastOutcome}
-            onAnswerCorrect={handleQuizCorrect}
-            onNextSky={handleNextSky}
-          />
-
-          {/* 4. BADGES CARD */}
-          <div className="glass p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-lg font-medium text-cosmic-text">
-                Your badges
-              </h2>
-              <span className="text-xs font-mono text-cosmic-muted">
-                {unlockedBadges.length} / {BADGE_DEFINITIONS.length} unlocked
-              </span>
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Wide Column: Game */}
+            <div className="lg:col-span-7 w-full">
+              {freeGameTab === "spot" ? (
+                <SpotTheMover
+                  moversFound={moversFound}
+                  roundNumber={roundNumber}
+                  realSkyBundles={realSkyBundles}
+                  onHit={handleHit}
+                  onMiss={handleMiss}
+                  onUseHint={() => handleDeductPoints(30)}
+                  onNextSky={handleNextSky}
+                  hintTriggerSeq={hintTriggerSeq}
+                />
+              ) : (
+                <CompareSkies
+                  compareRoundsCompleted={compareRoundsCompleted}
+                  roundNumber={roundNumber}
+                  onChangeFound={handleCompareChangeFound}
+                  onMiss={handleMiss}
+                  onDeductPoints={handleDeductPoints}
+                  onRoundComplete={handleCompareRoundComplete}
+                  onNextRound={handleNextSky}
+                  hintTriggerSeq={hintTriggerSeq}
+                  blinkTriggerSeq={blinkTriggerSeq}
+                />
+              )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
-              {BADGE_DEFINITIONS.map((badge) => {
-                const isUnlocked = unlockedBadges.includes(badge.id);
-                return (
-                  <div
-                    key={badge.id}
-                    className={`p-3.5 rounded-2xl border flex flex-col items-center text-center gap-2 transition-all ${
-                      isUnlocked
-                        ? "bg-white/[0.07] border-white/25 shadow-sm"
-                        : "bg-white/[0.02] border-dashed border-white/20 opacity-60"
-                    }`}
-                  >
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        isUnlocked
-                          ? `bg-gradient-to-br ${badge.gradient} shadow-md`
-                          : "border-2 border-dashed border-white/30 bg-white/5"
-                      }`}
-                    >
-                      <BadgeSvgIcon id={badge.id} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="font-heading text-xs font-bold text-cosmic-text">
-                        {badge.name}
-                      </div>
-                      <div className="text-[10px] text-cosmic-muted leading-tight">
-                        {badge.requirement}
-                      </div>
+            {/* Right Column: Score + Quiz Card + Badges */}
+            <aside className="lg:col-span-5 w-full space-y-6">
+              {/* SCORE CARD */}
+              <div className="glass p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/15">
+                    <div className="text-xs text-cosmic-muted">Score</div>
+                    <div className="font-mono text-3xl sm:text-4xl font-medium text-[#FFD166] mt-1">
+                      {animatedScore}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
-      </section>
+
+                  <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/15">
+                    <div className="text-xs text-cosmic-muted">Movers found</div>
+                    <div className="font-mono text-3xl sm:text-4xl font-medium text-[#B5EAD7] mt-1">
+                      {animatedFinds}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-1">
+                  <div className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
+                    <span className="text-cosmic-muted">Streak</span>
+                    <span className="font-mono font-medium text-pastel-lavender">
+                      {streak} in a row
+                    </span>
+                  </div>
+
+                  <div className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
+                    <span className="text-cosmic-muted">Best time</span>
+                    <span className="font-mono font-medium text-pastel-sky">
+                      {bestTimeSec !== null ? `${bestTimeSec.toFixed(1)}s` : "None"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* QUIZ CARD */}
+              <QuizCard
+                lastOutcome={lastOutcome}
+                onAnswerCorrect={handleQuizCorrect}
+                onNextSky={handleNextSky}
+              />
+
+              {/* BADGES CARD */}
+              <div className="glass p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-heading text-lg font-medium text-cosmic-text">
+                    Your badges
+                  </h2>
+                  <span className="text-xs font-mono text-cosmic-muted">
+                    {unlockedBadges.length} / {BADGE_DEFINITIONS.length} unlocked
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+                  {BADGE_DEFINITIONS.map((badge) => {
+                    const isUnlocked = unlockedBadges.includes(badge.id);
+                    return (
+                      <div
+                        key={badge.id}
+                        className={`p-3.5 rounded-2xl border flex flex-col items-center text-center gap-2 transition-all ${
+                          isUnlocked
+                            ? "bg-white/[0.07] border-white/25 shadow-sm"
+                            : "bg-white/[0.02] border-dashed border-white/20 opacity-60"
+                        }`}
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                            isUnlocked
+                              ? `bg-gradient-to-br ${badge.gradient} shadow-md`
+                              : "border-2 border-dashed border-white/30 bg-white/5"
+                          }`}
+                        >
+                          <BadgeSvgIcon id={badge.id} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="font-heading text-xs font-bold text-cosmic-text">
+                            {badge.name}
+                          </div>
+                          <div className="text-[10px] text-cosmic-muted leading-tight">
+                            {badge.requirement}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </aside>
+          </section>
+        </div>
+      )}
 
       {/* Centre-Screen Badge Unlock Glass Modal */}
       <AnimatePresence>
@@ -978,7 +1136,7 @@ export default function TrainingPage() {
                 </h3>
                 <p className="text-sm text-cosmic-muted leading-relaxed">
                   This will clear your current score ({score} pts), movers found
-                  ({moversFound}), streak, and unlocked badges back to Cadet
+                  ({moversFound}), mission stars, sky quiz records, and unlocked badges back to Cadet
                   level.
                 </p>
               </div>

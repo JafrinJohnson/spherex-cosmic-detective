@@ -36,6 +36,7 @@ export interface RoundOutcome {
   missedInRound: boolean;
   pointsEarned: number;
   objectType?: RevealObjectType;
+  snapshotDataUrl?: string;
   compareQuiz?: {
     prompt: string;
     options: [string, string, string];
@@ -59,6 +60,8 @@ interface SpotTheMoverProps {
   onUseHint: () => void;
   onNextSky: () => void;
   hintTriggerSeq: number;
+  forcedLevel?: 1 | 2 | 3 | 4;
+  suppressInternalReveal?: boolean;
 }
 
 interface StarParticle {
@@ -131,19 +134,22 @@ export function SpotTheMover({
   onUseHint,
   onNextSky,
   hintTriggerSeq,
+  forcedLevel,
+  suppressInternalReveal = false,
 }: SpotTheMoverProps) {
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Determine level automatically every 3 finds (L1..L4)
+  // Determine level automatically every 3 finds (L1..L4) unless forcedLevel is set
   const level: 1 | 2 | 3 | 4 = useMemo(() => {
+    if (forcedLevel) return forcedLevel;
     if (moversFound >= 9) return 4;
     if (moversFound >= 6) return 3;
     if (moversFound >= 3) return 2;
     return 1;
-  }, [moversFound]);
+  }, [forcedLevel, moversFound]);
 
   const levelConfig = useMemo(() => {
     switch (level) {
@@ -595,13 +601,22 @@ export function SpotTheMover({
       setLastPointsAwarded(totalPts);
       setLastSpeedBonus(speedBonus);
       setFoundInRound(true);
-      setRevealOpen(true);
+      if (!suppressInternalReveal) {
+        setRevealOpen(true);
+      }
 
       hitEffectRef.current = {
         x: (roundData.posA.x + roundData.posB.x) / 2,
         y: (roundData.posA.y + roundData.posB.y) / 2,
         startedAt: performance.now(),
       };
+
+      let snapshotDataUrl: string | undefined;
+      try {
+        snapshotDataUrl = canvasRef.current?.toDataURL("image/png");
+      } catch {
+        snapshotDataUrl = undefined;
+      }
 
       onHit({
         roundId: roundNumber,
@@ -616,6 +631,7 @@ export function SpotTheMover({
         missedInRound,
         pointsEarned: totalPts,
         objectType: roundData.objectType,
+        snapshotDataUrl,
       });
     } else {
       // Miss -> small peach ripple where tapped, -10 points, soft click sound

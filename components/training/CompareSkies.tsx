@@ -55,6 +55,8 @@ interface CompareSkiesProps {
   onNextRound: () => void;
   hintTriggerSeq: number;
   blinkTriggerSeq: number;
+  forcedLevel?: 1 | 2 | 3 | 4;
+  suppressInternalReveal?: boolean;
 }
 
 const CANVAS_W = 360;
@@ -99,6 +101,8 @@ export function CompareSkies({
   onNextRound,
   hintTriggerSeq,
   blinkTriggerSeq,
+  forcedLevel,
+  suppressInternalReveal = false,
 }: CompareSkiesProps) {
   const prefersReducedMotion = useReducedMotion();
   const { playSound } = useSound();
@@ -106,13 +110,14 @@ export function CompareSkies({
   const canvas1Ref = useRef<HTMLCanvasElement | null>(null);
   const canvas2Ref = useRef<HTMLCanvasElement | null>(null);
 
-  // Level up every 2 completed rounds (L1..L4)
+  // Level up every 2 completed rounds (L1..L4) unless forcedLevel is set
   const level: 1 | 2 | 3 | 4 = useMemo(() => {
+    if (forcedLevel) return forcedLevel;
     if (compareRoundsCompleted >= 6) return 4;
     if (compareRoundsCompleted >= 4) return 3;
     if (compareRoundsCompleted >= 2) return 2;
     return 1;
-  }, [compareRoundsCompleted]);
+  }, [forcedLevel, compareRoundsCompleted]);
 
   const levelConfig = useMemo(() => {
     switch (level) {
@@ -593,7 +598,9 @@ export function CompareSkies({
       // Check if ALL changes in this round are now found
       if (nextFound.length === roundData.changes.length) {
         playSound("success");
-        setRevealOpen(true);
+        if (!suppressInternalReveal) {
+          setRevealOpen(true);
+        }
 
         const elapsedSec = Number(
           ((performance.now() - roundStartRef.current) / 1000).toFixed(2)
@@ -616,6 +623,13 @@ export function CompareSkies({
           distractors[1],
         ];
 
+        let snapshotDataUrl: string | undefined;
+        try {
+          snapshotDataUrl = canvas2Ref.current?.toDataURL("image/png");
+        } catch {
+          snapshotDataUrl = undefined;
+        }
+
         onRoundComplete({
           roundId: roundNumber * 100 + retryCounter,
           level,
@@ -629,6 +643,7 @@ export function CompareSkies({
           missedInRound: lives < 3,
           pointsEarned: roundData.changes.length * 60,
           objectType: roundData.revealType,
+          snapshotDataUrl,
           compareQuiz: {
             prompt:
               roundData.changes.length > 1
